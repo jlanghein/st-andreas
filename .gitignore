@@ -3,3 +3,7 @@
 __pycache__
 *.pyc
 .ruff_cache
+
+# Secrets - never commit
+secrets.env
+*.env.local
