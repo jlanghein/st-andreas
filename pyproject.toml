@@ -1,0 +1,10 @@
+[project]
+name = "spendenquittungen"
+version = "1.0.0"
+description = "Convert member data to Excel spreadsheet for mail merge"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "openpyxl>=3.0",
+]
