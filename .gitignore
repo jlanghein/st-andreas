@@ -8,3 +8,6 @@ __pycache__
 # Secrets - never commit
 secrets.env
 *.env.local
+
+# Backups
+backups/
