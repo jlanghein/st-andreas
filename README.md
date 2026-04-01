@@ -39,9 +39,8 @@ HETZNER_SSH_KEY_PATH=~/.ssh/hetzner_key
 
 Fetches member data from Admidio database and uploads a styled Excel report to Admidio's document storage.
 
-**Run:**
 ```bash
-uv run python -c "from fetch_members import main; main()"
+uv run fetch-members
 ```
 
 **Features:**
@@ -54,24 +53,30 @@ uv run python -c "from fetch_members import main; main()"
 
 ### Spendenquittungen (Donation Receipts)
 
-Converts member data to Excel spreadsheet for mail merge document creation.
+Fetches member data from Admidio database and generates Excel spreadsheet for mail merge document creation.
 
-**Run:**
 ```bash
-uv run python Spendenquittungen.py
+uv run spendenquittungen
 ```
 
 **Features:**
-- Loads member data exported from Admidio
+- Fetches member data directly from Admidio database via SSH tunnel
 - Maps membership levels to contribution amounts and German word representations
 - Normalizes family member addresses to use the oldest family member's address
 - Filters only members with paid contributions
 - Generates Excel output for mail merge with Word
 
-**Configuration:** Edit `Spendenquittungen.py` to customize:
-- `METADATA`: Period, exemption date, and year range
-- `BEITRAGS_CONFIG`: Membership level mappings and amounts
-- `OUTPUT_COLS`: Columns included in the output spreadsheet
+**Output:** `data/Spendenquittungen_{year}.xlsx`
+
+## Project Structure
+
+```
+src/st_andreas/
+├── __init__.py
+├── admidio_db.py       # Shared database utilities (SSH tunnel, queries)
+├── fetch_members.py    # Mitgliederliste pipeline
+└── spendenquittungen.py # Spendenquittungen pipeline
+```
 
 ## Documentation
 
