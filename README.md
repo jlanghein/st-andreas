@@ -78,6 +78,32 @@ src/st_andreas/
 └── spendenquittungen.py # Spendenquittungen pipeline
 ```
 
+## Testing
+
+Run the test suite:
+
+```bash
+uv run pytest
+```
+
+**Test Categories:**
+
+- **Unit tests** — Test pure functions with mocked dependencies (always run)
+- **Integration tests** — Test database connectivity (skipped without `secrets.env`)
+
+Integration tests are automatically skipped in CI or when `secrets.env` is not present. To run all tests including integration tests locally:
+
+```bash
+# Ensure secrets.env exists with valid credentials
+uv run pytest -v
+```
+
+To run only unit tests:
+
+```bash
+uv run pytest -v -m "not requires_database"
+```
+
 ## Documentation
 
 - `docs/infrastructure.md` - Server access and database credentials
