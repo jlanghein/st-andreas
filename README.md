@@ -25,12 +25,20 @@ Create a `secrets.env` file with the required credentials (see `docs/infrastruct
 ADMIDIO_DB_NAME=admidio
 ADMIDIO_DB_USER=admidio
 ADMIDIO_DB_PASSWORD=<password>
+ADMIDIO_DB_ROOT_PASSWORD=<root_password>
 ADMIDIO_TABLE_PREFIX=adm_
 
 # Hetzner SSH Access
 HETZNER_SSH_HOST=<ip>
 HETZNER_SSH_USER=root
 HETZNER_SSH_KEY_PATH=~/.ssh/hetzner_key
+
+# Backup Configuration (optional)
+BACKUP_DIR=./backups
+BACKUP_RETENTION_DAYS=30
+BACKUP_TIME_HOUR=2
+BACKUP_TIME_MINUTE=0
+BACKUP_TIMEZONE=Europe/Berlin
 ```
 
 ## Pipelines
@@ -68,14 +76,54 @@ uv run spendenquittungen
 
 **Output:** `data/Spendenquittungen_{year}.xlsx`
 
+### Database Backup
+
+Automated daily backups of the Admidio MariaDB database.
+
+```bash
+# Run backup scheduler (continuous, backs up at 2 AM Europe/Berlin)
+uv run backup-scheduler
+
+# Run single backup immediately
+uv run backup-scheduler --once
+```
+
+**Features:**
+- Daily automated backups at 02:00 Europe/Berlin
+- Compressed with gzip (~130KB per backup)
+- Automatic retention cleanup (default: 30 days)
+- Runs as systemd user service
+
+**Backup location:** `backups/admidio_YYYYMMDD_HHMMSS.sql.gz`
+
+#### Systemd Service
+
+The backup scheduler runs as a systemd user service:
+
+```bash
+# Check status
+systemctl --user status st-andreas-backup
+
+# View logs
+journalctl --user -u st-andreas-backup -f
+
+# Restart service
+systemctl --user restart st-andreas-backup
+```
+
 ## Project Structure
 
 ```
 src/st_andreas/
 ├── __init__.py
-├── admidio_db.py       # Shared database utilities (SSH tunnel, queries)
-├── fetch_members.py    # Mitgliederliste pipeline
-└── spendenquittungen.py # Spendenquittungen pipeline
+├── admidio_db.py         # Shared database utilities (SSH tunnel, queries)
+├── fetch_members.py      # Mitgliederliste pipeline
+├── spendenquittungen.py  # Spendenquittungen pipeline
+└── backup/
+    ├── config.py         # Backup configuration
+    ├── dump.py           # Database dump operations
+    ├── retention.py      # Backup retention cleanup
+    └── scheduler.py      # AioClock scheduler
 ```
 
 ## Testing

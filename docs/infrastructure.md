@@ -110,3 +110,56 @@ sshpass -p '<password>' ssh administrator@10.10.10.18
 2. SSH keys should have `600` permissions
 3. Rotate passwords periodically
 4. Restrict phpMyAdmin access if possible (currently on public port)
+
+---
+
+## Database Backups
+
+### Overview
+
+Automated daily backups run at 02:00 Europe/Berlin time. Backups are stored locally in the `backups/` directory and compressed with gzip.
+
+### Configuration
+
+Optional settings in `secrets.env`:
+
+```bash
+BACKUP_DIR=./backups           # Default: ./backups
+BACKUP_RETENTION_DAYS=30       # Default: 30
+BACKUP_TIME_HOUR=2             # Default: 2 (2 AM)
+BACKUP_TIME_MINUTE=0           # Default: 0
+BACKUP_TIMEZONE=Europe/Berlin  # Default: Europe/Berlin
+```
+
+### Running the Backup Scheduler
+
+```bash
+# Start scheduler (runs continuously, executes backup at scheduled time)
+uv run backup-scheduler
+
+# Run single backup immediately (for testing)
+uv run backup-scheduler --once
+```
+
+### Manual Backup via SSH
+
+```bash
+ssh -i ~/.ssh/hetzner_key root@91.98.90.85 \
+  "docker exec admidio_db mysqldump -u root -p<password> admidio" \
+  | gzip > backups/admidio_manual_$(date +%Y%m%d_%H%M%S).sql.gz
+```
+
+### Restoring from Backup
+
+```bash
+# Decompress and restore
+gunzip -c backups/admidio_20250401_020000.sql.gz | \
+  ssh -i ~/.ssh/hetzner_key root@91.98.90.85 \
+  "docker exec -i admidio_db mysql -u root -p<password> admidio"
+```
+
+### Backup Files
+
+- **Location:** `backups/` directory (gitignored)
+- **Naming:** `admidio_YYYYMMDD_HHMMSS.sql.gz`
+- **Retention:** Configurable, default 30 days
