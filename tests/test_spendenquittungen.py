@@ -4,7 +4,7 @@ from datetime import date
 
 from inline_snapshot import snapshot
 
-from st_andreas.spendenquittungen import (
+from st_andreas.pipelines.spendenquittungen import (
     RECEIPT_CONFIG,
     Beitragsstufe,
     MemberRecord,

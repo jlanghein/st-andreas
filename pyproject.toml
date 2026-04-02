@@ -20,8 +20,9 @@ dev = [
 
 [project.scripts]
 backup-scheduler = "st_andreas.backup.scheduler:main"
-fetch-members = "st_andreas.fetch_members:main"
-spendenquittungen = "st_andreas.spendenquittungen:main"
+fetch-members-all = "st_andreas.pipelines.fetch_members_all:main"
+fetch-members-no-kontoinhaber = "st_andreas.pipelines.fetch_members_no_kontoinhaber:main"
+spendenquittungen = "st_andreas.pipelines.spendenquittungen:main"
 
 [build-system]
 requires = ["hatchling"]
