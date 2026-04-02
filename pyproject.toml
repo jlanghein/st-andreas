@@ -21,6 +21,7 @@ dev = [
 [project.scripts]
 backup-scheduler = "st_andreas.backup.scheduler:main"
 fetch-members = "st_andreas.fetch_members:main"
+fetch-members-no-kontoinhaber = "st_andreas.fetch_members_no_kontoinhaber:main"
 spendenquittungen = "st_andreas.spendenquittungen:main"
 
 [build-system]
