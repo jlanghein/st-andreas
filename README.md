@@ -43,12 +43,16 @@ BACKUP_TIMEZONE=Europe/Berlin
 
 ## Pipelines
 
-### Mitgliederliste (Member List)
+### Member Pipelines
 
-Fetches member data from Admidio database and uploads a styled Excel report to Admidio's document storage.
+The project uses a configurable pipeline system for member data exports. New pipelines can be created by defining a `PipelineConfig` with columns, filters, and export settings.
+
+#### Mitgliederliste (All Members)
+
+Fetches all member data from Admidio database and uploads a styled Excel report to Admidio's document storage.
 
 ```bash
-uv run fetch-members
+uv run fetch-members-all
 ```
 
 **Features:**
@@ -58,6 +62,58 @@ uv run fetch-members
 - Professional Excel styling with headers, alternating rows, filters
 - Auto-uploads to Admidio "Dokumente & Dateien" → "Mitgliederliste"
 - Timestamped filenames (e.g., `2026-04-01_1605_Mitgliederliste.xlsx`)
+
+#### Members Without Kontoinhaber
+
+Fetches members who don't have a bank account holder (Kontoinhaber) set, including their email addresses.
+
+```bash
+uv run fetch-members-no-kontoinhaber
+```
+
+**Features:**
+- Filters members where Kontoinhaber field is empty
+- Includes Email column for follow-up contact
+- Same styling and upload behavior as Mitgliederliste
+
+#### Creating New Member Pipelines
+
+To create a new pipeline with different filters or columns:
+
+```python
+from st_andreas.admidio_db import AdmidioField
+from st_andreas.member_pipeline import (
+    ColumnConfig, FilterFieldConfig, PipelineConfig,
+    FieldEmptyFilter, FieldEqualsFilter, run_pipeline,
+)
+
+CONFIG = PipelineConfig(
+    name="my_pipeline",
+    description="Pipeline description",
+    columns=(
+        ColumnConfig("Header", AdmidioField.FIELD_NAME, width=15),
+        # ... more columns
+    ),
+    filter_fields=(
+        # Fields needed for filtering but not exported
+        FilterFieldConfig("FilterCol", AdmidioField.FILTER_FIELD),
+    ),
+    filters=(
+        FieldEmptyFilter("FilterCol"),
+        # FieldNotEmptyFilter, FieldEqualsFilter, FieldContainsFilter
+    ),
+    filename_prefix="MyExport",
+)
+
+def main() -> None:
+    run_pipeline(CONFIG)
+```
+
+Available filters:
+- `FieldEmptyFilter(field_name)` - matches null or empty string
+- `FieldNotEmptyFilter(field_name)` - matches non-null, non-empty
+- `FieldEqualsFilter(field_name, values)` - matches specific values
+- `FieldContainsFilter(field_name, substring)` - matches substring
 
 ### Spendenquittungen (Donation Receipts)
 
@@ -116,14 +172,23 @@ systemctl --user restart st-andreas-backup
 ```
 src/st_andreas/
 ├── __init__.py
-├── admidio_db.py         # Shared database utilities (SSH tunnel, queries)
-├── fetch_members.py      # Mitgliederliste pipeline
-├── spendenquittungen.py  # Spendenquittungen pipeline
+├── admidio_db.py              # Shared database utilities (SSH tunnel, queries)
+├── member_pipeline/           # Configurable pipeline infrastructure
+│   ├── __init__.py
+│   ├── config.py              # PipelineConfig, ColumnConfig dataclasses
+│   ├── filters.py             # MemberFilter ABC and filter implementations
+│   ├── excel_export.py        # Styled Excel export
+│   └── pipeline.py            # run_pipeline() orchestrator
+├── pipelines/                 # Pipeline entry points
+│   ├── __init__.py
+│   ├── fetch_members_all.py   # All members pipeline
+│   ├── fetch_members_no_kontoinhaber.py  # Members without Kontoinhaber
+│   └── spendenquittungen.py   # Donation receipts (complex transformations)
 └── backup/
-    ├── config.py         # Backup configuration
-    ├── dump.py           # Database dump operations
-    ├── retention.py      # Backup retention cleanup
-    └── scheduler.py      # AioClock scheduler
+    ├── config.py              # Backup configuration
+    ├── dump.py                # Database dump operations
+    ├── retention.py           # Backup retention cleanup
+    └── scheduler.py           # AioClock scheduler
 ```
 
 ## Testing

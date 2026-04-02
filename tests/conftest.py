@@ -6,7 +6,7 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-from st_andreas.spendenquittungen import Beitragsstufe, MemberRecord
+from st_andreas.pipelines.spendenquittungen import Beitragsstufe, MemberRecord
 
 
 @pytest.fixture
