@@ -8,12 +8,9 @@ from st_andreas.admidio_db import AdmidioField
 from st_andreas.member_pipeline import (
     ColumnConfig,
     FieldEmptyFilter,
-    FilterFieldConfig,
     PipelineConfig,
     run_pipeline,
 )
-
-KONTOINHABER_COLUMN: Final[str] = "Kontoinhaber"
 
 CONFIG: Final = PipelineConfig(
     name="members_no_kontoinhaber",
@@ -21,13 +18,13 @@ CONFIG: Final = PipelineConfig(
     columns=(
         ColumnConfig("MitgliedsNr", AdmidioField.MITGLIEDSNR, width=15),
         ColumnConfig("Nachname", AdmidioField.LAST_NAME, width=18),
-        ColumnConfig("Vorname", AdmidioField.FIRST_NAME, width=18),
+        ColumnConfig("Vorname", AdmidioField.FIRST_NAME, width=28),
         ColumnConfig("Email", AdmidioField.EMAIL, width=30),
+        ColumnConfig("Kontoinhaber", AdmidioField.KONTOINHABER, width=28),
         ColumnConfig("FamilienNr", AdmidioField.FAMILIENNR, width=12),
         ColumnConfig("Sippe", AdmidioField.SIPPE, width=22),
     ),
-    filter_fields=(FilterFieldConfig(KONTOINHABER_COLUMN, AdmidioField.KONTOINHABER),),
-    filters=(FieldEmptyFilter(KONTOINHABER_COLUMN),),
+    filters=(FieldEmptyFilter("Kontoinhaber"),),
     filename_prefix="Mitglieder_ohne_Kontoinhaber",
 )
 
