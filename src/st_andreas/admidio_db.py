@@ -16,11 +16,14 @@ import pymysql.cursors
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-SECRETS_FILE: Final = Path(__file__).parent.parent.parent / "secrets.env"
+SECRETS_FILE: Final[Path] = Path(__file__).parent.parent.parent / "secrets.env"
 
-SSH_TUNNEL_LOCAL_PORT: Final = 13306
-SSH_TUNNEL_REMOTE_PORT: Final = 3306
-DOCKER_DB_HOST: Final = "172.18.0.2"
+SSH_TUNNEL_LOCAL_PORT: Final[int] = 13306
+SSH_TUNNEL_REMOTE_PORT: Final[int] = 3306
+DOCKER_DB_HOST: Final[str] = "172.18.0.2"
+
+MEMBERS_ROLE_NAME: Final[str] = "StA-Mitglieder"
+PERMANENT_MEMBERSHIP_END: Final[str] = "9999-12-31"
 
 
 class AdmidioField(Enum):
@@ -186,8 +189,13 @@ def fetch_user_field_values(
 ) -> dict[int, dict[str, str | None]]:
     """Fetch user data for specified field IDs.
 
+    Only returns users with active membership in the members role.
+    A membership is active if mem_end >= today or mem_end is the permanent date.
+
     Returns a dict mapping user_id to a dict of field_name -> value.
     """
+    field_id_placeholders = ",".join("%s" for _ in field_ids)
+
     query = f"""
         SELECT
             u.usr_id,
@@ -196,13 +204,19 @@ def fetch_user_field_values(
         FROM {table_prefix}users u
         JOIN {table_prefix}user_data ud ON u.usr_id = ud.usd_usr_id
         JOIN {table_prefix}user_fields uf ON ud.usd_usf_id = uf.usf_id
-        WHERE uf.usf_id IN ({",".join(str(fid) for fid in field_ids)})
+        JOIN {table_prefix}members m ON u.usr_id = m.mem_usr_id
+        JOIN {table_prefix}roles r ON m.mem_rol_id = r.rol_id
+        WHERE uf.usf_id IN ({field_id_placeholders})
           AND u.usr_valid = 1
+          AND r.rol_name = %s
+          AND (m.mem_end >= CURDATE() OR m.mem_end = %s)
         ORDER BY u.usr_id
     """
 
+    query_params = (*field_ids, MEMBERS_ROLE_NAME, PERMANENT_MEMBERSHIP_END)
+
     with conn.cursor() as cursor:
-        cursor.execute(query)
+        cursor.execute(query, query_params)
         rows = cursor.fetchall()
 
     users: dict[int, dict[str, str | None]] = {}
