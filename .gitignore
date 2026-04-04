@@ -11,3 +11,6 @@ secrets.env
 
 # Backups
 backups/
+
+# Copied notebooks
+StAndreas/
