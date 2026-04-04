@@ -5,6 +5,8 @@ description = "St. Andreas data pipelines and tools"
 requires-python = ">=3.11"
 dependencies = [
     "aioclock>=0.1",
+    "lxml>=5.0",
+    "lxml-stubs>=0.5.1",
     "openpyxl>=3.0",
     "pandas>=2.0",
     "pymysql>=1.1",
@@ -22,6 +24,7 @@ dev = [
 backup-scheduler = "st_andreas.backup.scheduler:main"
 fetch-members-all = "st_andreas.pipelines.fetch_members_all:main"
 fetch-members-no-kontoinhaber = "st_andreas.pipelines.fetch_members_no_kontoinhaber:main"
+sepa-lastschrift = "st_andreas.pipelines.sepa_lastschrift:main"
 spendenquittungen = "st_andreas.pipelines.spendenquittungen:main"
 sippe = "st_andreas.sippe.cli:main"
 

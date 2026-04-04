@@ -1,4 +1,5 @@
 /data
+/src/data
 .venv
 __pycache__
 *.pyc
@@ -11,3 +12,6 @@ secrets.env
 
 # Backups
 backups/
+
+# Copied notebooks
+StAndreas/
