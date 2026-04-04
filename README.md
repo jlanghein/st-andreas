@@ -18,28 +18,13 @@ uv sync
 
 ## Configuration
 
-Create a `secrets.env` file with the required credentials (see `docs/infrastructure.md` for details):
+Copy the example secrets file and fill in your credentials:
 
 ```bash
-# Admidio Database
-ADMIDIO_DB_NAME=admidio
-ADMIDIO_DB_USER=admidio
-ADMIDIO_DB_PASSWORD=<password>
-ADMIDIO_DB_ROOT_PASSWORD=<root_password>
-ADMIDIO_TABLE_PREFIX=adm_
-
-# Hetzner SSH Access
-HETZNER_SSH_HOST=<ip>
-HETZNER_SSH_USER=root
-HETZNER_SSH_KEY_PATH=~/.ssh/hetzner_key
-
-# Backup Configuration (optional)
-BACKUP_DIR=./backups
-BACKUP_RETENTION_DAYS=30
-BACKUP_TIME_HOUR=2
-BACKUP_TIME_MINUTE=0
-BACKUP_TIMEZONE=Europe/Berlin
+cp secrets.env.example secrets.env
 ```
+
+See `secrets.env.example` for all available configuration options.
 
 ## Pipelines
 
@@ -141,14 +126,6 @@ uv run sepa-lastschrift --year 2026 --collection-date 2026-11-15
 - Stufe 4 (Ermäßigt): 24 EUR
 
 **Output:** `src/data/sepa_lastschrift_{year}.xml`
-
-**Required secrets.env entries:**
-```bash
-SEPA_CREDITOR_NAME=Your Organization Name
-SEPA_CREDITOR_IBAN=DE...
-SEPA_CREDITOR_BIC=...
-SEPA_CREDITOR_ID=DE...
-```
 
 ### Spendenquittungen (Donation Receipts)
 
