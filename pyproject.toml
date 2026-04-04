@@ -23,7 +23,7 @@ backup-scheduler = "st_andreas.backup.scheduler:main"
 fetch-members-all = "st_andreas.pipelines.fetch_members_all:main"
 fetch-members-no-kontoinhaber = "st_andreas.pipelines.fetch_members_no_kontoinhaber:main"
 spendenquittungen = "st_andreas.pipelines.spendenquittungen:main"
-sippe-cleanup = "st_andreas.sippe.cleanup:main"
+sippe = "st_andreas.sippe.cli:main"
 
 [build-system]
 requires = ["hatchling"]
