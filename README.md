@@ -132,6 +132,34 @@ uv run spendenquittungen
 
 **Output:** `data/Spendenquittungen_{year}.xlsx`
 
+### Sippe Management
+
+CLI tool for safely managing the Sippe dropdown field in Admidio. Handles the position-based storage correctly by reassigning all members when the list changes.
+
+```bash
+# List current Sippe with member counts
+uv run sippe list
+
+# Add a new Sippe (sorts alphabetically, reassigns all members)
+uv run sippe add "NewSippe"
+uv run sippe add "NewSippe" --dry-run  # Preview changes
+
+# Delete a Sippe (must reassign members first if any)
+uv run sippe delete "OldSippe"
+uv run sippe delete "OldSippe" --reassign-to "OtherSippe"
+
+# Sort alphabetically (if not already sorted)
+uv run sippe sort
+```
+
+**Features:**
+- Safe position reassignment preserves member-to-Sippe mappings
+- `--dry-run` flag to preview changes before execution
+- Confirmation prompt with backup reminder
+- All changes in a single database transaction
+
+**Why this tool exists:** Admidio stores dropdown values by position number, not name. Adding or deleting items shifts positions and corrupts member assignments. This CLI handles reassignment automatically.
+
 ### Database Backup
 
 Automated daily backups of the Admidio MariaDB database.
@@ -184,6 +212,10 @@ src/st_andreas/
 │   ├── fetch_members_all.py   # All members pipeline
 │   ├── fetch_members_no_kontoinhaber.py  # Members without Kontoinhaber
 │   └── spendenquittungen.py   # Donation receipts (complex transformations)
+├── sippe/                     # Sippe management CLI
+│   ├── __init__.py
+│   ├── cli.py                 # CLI entry point (list, add, delete, sort)
+│   └── operations.py          # Core database operations
 └── backup/
     ├── config.py              # Backup configuration
     ├── dump.py                # Database dump operations
