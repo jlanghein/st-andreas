@@ -115,6 +115,41 @@ Available filters:
 - `FieldEqualsFilter(field_name, values)` - matches specific values
 - `FieldContainsFilter(field_name, substring)` - matches substring
 
+### SEPA Lastschrift (Direct Debit)
+
+Generates SEPA pain.008.001.02 XML files for annual membership fee collection via direct debit.
+
+```bash
+# Generate for current year (collection date: 5 days from today)
+uv run sepa-lastschrift
+
+# Specify year and collection date
+uv run sepa-lastschrift --year 2026 --collection-date 2026-11-15
+```
+
+**Features:**
+- Generates bank-importable pain.008.001.02 XML
+- Uses Kontoinhaber field with fallback to Vorname + Nachname
+- Family deduplication: families (Beitragsstufe 3) share one transaction using FamilienNr
+- IBAN normalization and SEPA character sanitization
+- Excludes members who already paid or have no IBAN
+- Reports excluded members
+
+**Fee structure:**
+- Stufe 1/2/5 (Kinder/Jugend, Erwachsene, Unterstützend): 120 EUR
+- Stufe 3 (Familie): 180 EUR
+- Stufe 4 (Ermäßigt): 24 EUR
+
+**Output:** `src/data/sepa_lastschrift_{year}.xml`
+
+**Required secrets.env entries:**
+```bash
+SEPA_CREDITOR_NAME=Your Organization Name
+SEPA_CREDITOR_IBAN=DE...
+SEPA_CREDITOR_BIC=...
+SEPA_CREDITOR_ID=DE...
+```
+
 ### Spendenquittungen (Donation Receipts)
 
 Fetches member data from Admidio database and generates Excel spreadsheet for mail merge document creation.
@@ -211,7 +246,13 @@ src/st_andreas/
 │   ├── __init__.py
 │   ├── fetch_members_all.py   # All members pipeline
 │   ├── fetch_members_no_kontoinhaber.py  # Members without Kontoinhaber
+│   ├── sepa_lastschrift.py    # SEPA direct debit XML generation
 │   └── spendenquittungen.py   # Donation receipts (complex transformations)
+├── sepa/                      # SEPA direct debit module
+│   ├── __init__.py
+│   ├── config.py              # SepaConfig, CreditorConfig, Beitragsstufe
+│   ├── transactions.py        # MemberRecord, SepaTransaction, DB fetching
+│   └── xml_generator.py       # pain.008.001.02 XML generation
 ├── sippe/                     # Sippe management CLI
 │   ├── __init__.py
 │   ├── cli.py                 # CLI entry point (list, add, delete, sort)
