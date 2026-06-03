@@ -61,6 +61,20 @@ uv run fetch-members-no-kontoinhaber
 - Includes Email column for follow-up contact
 - Same styling and upload behavior as Mitgliederliste
 
+#### Mitglieder ab 27 (Members 27+)
+
+Generates a report of all active members aged 27 and older with their Beitragsstufe.
+
+```bash
+uv run members-27-plus
+```
+
+**Features:**
+- Fetches Vorname, Nachname, Geburtsdatum, Sippe, Beitragsstufe
+- Filters members whose birthday indicates age 27 or older
+- Maps both Sippe and Beitragsstufe IDs to human-readable names
+- Same styling and upload behavior as Mitgliederliste
+
 #### Creating New Member Pipelines
 
 To create a new pipeline with different filters or columns:
@@ -69,7 +83,7 @@ To create a new pipeline with different filters or columns:
 from st_andreas.admidio_db import AdmidioField
 from st_andreas.member_pipeline import (
     ColumnConfig, FilterFieldConfig, PipelineConfig,
-    FieldEmptyFilter, FieldEqualsFilter, run_pipeline,
+    FieldEmptyFilter, FieldEqualsFilter, MinAgeFilter, run_pipeline,
 )
 
 CONFIG = PipelineConfig(
@@ -85,8 +99,10 @@ CONFIG = PipelineConfig(
     ),
     filters=(
         FieldEmptyFilter("FilterCol"),
-        # FieldNotEmptyFilter, FieldEqualsFilter, FieldContainsFilter
+        # FieldNotEmptyFilter, FieldEqualsFilter, FieldContainsFilter, MinAgeFilter
     ),
+    # Fields whose numeric IDs should be resolved to human-readable names
+    value_list_fields=("SIPPE", "BEITRAGSSTUFE"),
     filename_prefix="MyExport",
 )
 
@@ -99,6 +115,7 @@ Available filters:
 - `FieldNotEmptyFilter(field_name)` - matches non-null, non-empty
 - `FieldEqualsFilter(field_name, values)` - matches specific values
 - `FieldContainsFilter(field_name, substring)` - matches substring
+- `MinAgeFilter(field_name, min_age)` - matches members at least min_age years old based on a date field
 
 ### SEPA Lastschrift (Direct Debit)
 
@@ -223,6 +240,7 @@ src/st_andreas/
 │   ├── __init__.py
 │   ├── fetch_members_all.py   # All members pipeline
 │   ├── fetch_members_no_kontoinhaber.py  # Members without Kontoinhaber
+│   ├── members_27_plus.py     # Members aged 27+
 │   ├── sepa_lastschrift.py    # SEPA direct debit XML generation
 │   └── spendenquittungen.py   # Donation receipts (complex transformations)
 ├── sepa/                      # SEPA direct debit module

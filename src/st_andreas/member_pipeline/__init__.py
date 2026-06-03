@@ -11,6 +11,7 @@ from st_andreas.member_pipeline.filters import (
     FieldEqualsFilter,
     FieldNotEmptyFilter,
     MemberFilter,
+    MinAgeFilter,
 )
 from st_andreas.member_pipeline.pipeline import run_pipeline
 
@@ -22,6 +23,7 @@ __all__ = [
     "FieldNotEmptyFilter",
     "FilterFieldConfig",
     "MemberFilter",
+    "MinAgeFilter",
     "PipelineConfig",
     "run_pipeline",
 ]

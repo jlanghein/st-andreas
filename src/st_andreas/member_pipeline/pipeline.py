@@ -30,12 +30,22 @@ ADMIDIO_VOLUME_PATH: Final[str] = (
 )
 ADMIDIO_SYSTEM_USER_ID: Final[int] = 1
 
-SIPPE_FIELD_NAME: Final[str] = "SIPPE"
+
+def _fetch_value_list_mappings(
+    config: PipelineConfig,
+    table_prefix: str,
+) -> dict[str, dict[str, str]]:
+    """Fetch value list mappings for all configured value list fields."""
+    with db_connection() as conn:
+        return {
+            field_name: fetch_field_value_list(conn, field_name, table_prefix)
+            for field_name in config.value_list_fields
+        }
 
 
 def _fetch_member_data(
     config: PipelineConfig,
-    sippe_mapping: dict[str, str],
+    value_list_mappings: dict[str, dict[str, str]],
     table_prefix: str,
 ) -> pd.DataFrame:
     """Fetch member data from Admidio database based on pipeline config."""
@@ -54,8 +64,9 @@ def _fetch_member_data(
             field_name = field_config.source_field.name
             value = user_data.get(field_name)
 
-            if field_name == SIPPE_FIELD_NAME and value:
-                value = sippe_mapping.get(value, value)
+            mapping = value_list_mappings.get(field_name)
+            if mapping and value:
+                value = mapping.get(value, value)
 
             row[field_config.header] = value
 
@@ -173,10 +184,9 @@ def run_pipeline(config: PipelineConfig) -> None:
     table_prefix = secrets["ADMIDIO_TABLE_PREFIX"]
 
     with ssh_tunnel():
-        with db_connection() as conn:
-            sippe_mapping = fetch_field_value_list(conn, SIPPE_FIELD_NAME, table_prefix)
+        value_list_mappings = _fetch_value_list_mappings(config, table_prefix)
 
-        df = _fetch_member_data(config, sippe_mapping, table_prefix)
+        df = _fetch_member_data(config, value_list_mappings, table_prefix)
         df = _apply_filters(df, config)
         df = _drop_filter_only_columns(df, config)
         df = _sort_data(df, config)

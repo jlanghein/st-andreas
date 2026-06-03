@@ -40,6 +40,7 @@ class PipelineConfig:
     columns: tuple[ColumnConfig, ...]
     filters: tuple[MemberFilter, ...] = field(default_factory=tuple)
     filter_fields: tuple[FilterFieldConfig, ...] = field(default_factory=tuple)
+    value_list_fields: tuple[str, ...] = ("SIPPE",)
     sort_by: tuple[str, ...] = ("Sippe", "Nachname")
     upload_to_admidio: bool = True
     admidio_folder_id: int = DEFAULT_ADMIDIO_FOLDER_ID

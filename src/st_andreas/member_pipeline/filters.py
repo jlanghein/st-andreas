@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import date
 
 import pandas as pd
 
@@ -74,3 +75,20 @@ class FieldContainsFilter(MemberFilter):
 
     def describe(self) -> str:
         return f"{self.field_name} contains '{self.substring}'"
+
+
+@dataclass(frozen=True)
+class MinAgeFilter(MemberFilter):
+    """Filter for records where a date field indicates minimum age."""
+
+    field_name: str
+    min_age: int
+
+    def apply(self, df: pd.DataFrame) -> pd.DataFrame:
+        today = date.today()
+        cutoff = today.replace(year=today.year - self.min_age)
+        dates = pd.to_datetime(df[self.field_name], errors="coerce").dt.date
+        return df[dates.notna() & (dates <= cutoff)]
+
+    def describe(self) -> str:
+        return f"age from {self.field_name} >= {self.min_age}"
