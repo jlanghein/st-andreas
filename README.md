@@ -101,7 +101,7 @@ CONFIG = PipelineConfig(
         FieldEmptyFilter("FilterCol"),
         # FieldNotEmptyFilter, FieldEqualsFilter, FieldContainsFilter, MinAgeFilter
     ),
-    # Fields whose numeric IDs should be resolved to human-readable names
+    # Fields whose numeric IDs should be resolved to human-readable names (default: ("SIPPE",))
     value_list_fields=("SIPPE", "BEITRAGSSTUFE"),
     filename_prefix="MyExport",
 )
@@ -143,6 +143,23 @@ uv run sepa-lastschrift --year 2026 --collection-date 2026-11-15
 - Stufe 4 (Ermäßigt): 24 EUR
 
 **Output:** `src/data/sepa_lastschrift_{year}.xml`
+
+#### SEPA Plausibility Check
+
+Runs validation checks against SEPA direct debit data before generating the XML file.
+
+```bash
+uv run python -m st_andreas.pipelines.sepa_plausibility_check
+```
+
+**Checks:**
+- Kontoinhaber completeness
+- Amounts match Beitragsstufe configuration
+- Family duplicate charge detection
+- Duplicate mandate IDs
+- IBAN format validation
+- Already-paid member exclusion
+- SEPA entry completeness (all required fields present)
 
 ### Spendenquittungen (Donation Receipts)
 
@@ -242,6 +259,7 @@ src/st_andreas/
 │   ├── fetch_members_no_kontoinhaber.py  # Members without Kontoinhaber
 │   ├── members_27_plus.py     # Members aged 27+
 │   ├── sepa_lastschrift.py    # SEPA direct debit XML generation
+│   ├── sepa_plausibility_check.py  # SEPA data plausibility checks
 │   └── spendenquittungen.py   # Donation receipts (complex transformations)
 ├── sepa/                      # SEPA direct debit module
 │   ├── __init__.py
