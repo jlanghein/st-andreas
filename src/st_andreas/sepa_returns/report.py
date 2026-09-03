@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Final
 from st_andreas.sepa_returns.apply import PlanStatus, format_amount
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Sequence
 
     from st_andreas.sepa_returns.apply import ReturnPlan
     from st_andreas.sepa_returns.config import ReportConfig
@@ -35,7 +35,6 @@ SECTION_TITLES: Final[dict[PlanStatus, str]] = {
     PlanStatus.AMBIGUOUS: "Nicht eindeutig - nicht geschrieben",
     PlanStatus.UNRESOLVED: "Kein Mitglied gefunden - nicht geschrieben",
     PlanStatus.UNKNOWN_YEAR: "Kein Beitragsfeld für dieses Jahr",
-    PlanStatus.ALREADY_APPLIED: "Bereits erledigt",
 }
 
 
@@ -49,7 +48,6 @@ class RunSummary:
     ambiguous: int
     unresolved: int
     unknown_year: int
-    writes: int
     dry_run: bool
 
     @property
@@ -78,7 +76,6 @@ def summarize(plans: Sequence[ReturnPlan], *, dry_run: bool) -> RunSummary:
         ambiguous=counts[PlanStatus.AMBIGUOUS],
         unresolved=counts[PlanStatus.UNRESOLVED],
         unknown_year=counts[PlanStatus.UNKNOWN_YEAR],
-        writes=sum(len(plan.writes) for plan in plans),
         dry_run=dry_run,
     )
 
@@ -146,8 +143,3 @@ def _format_plan(plan: ReturnPlan) -> str:
     if not debit.amounts_reconcile:
         parts.append(f"Betrag unerwartet zusammengesetzt ({debit.own_bank_fee} €)")
     return " | ".join(parts)
-
-
-def attention_plans(plans: Iterable[ReturnPlan]) -> list[ReturnPlan]:
-    """Keep the plans a human has to look at."""
-    return [plan for plan in plans if plan.status in ATTENTION_STATUSES]
