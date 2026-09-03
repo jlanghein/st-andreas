@@ -115,9 +115,7 @@ class TestBeitragYear:
 
 
 class TestAmountDecomposition:
-    def test_own_bank_fee_is_the_remainder(
-        self, returns: list[ReturnedDebit]
-    ) -> None:
+    def test_own_bank_fee_is_the_remainder(self, returns: list[ReturnedDebit]) -> None:
         assert returns[0].own_bank_fee == OWN_BANK_RETURN_FEE_EUR
 
     def test_expected_decomposition_reconciles(
@@ -135,9 +133,7 @@ class TestAmountDecomposition:
 
 
 class TestFingerprint:
-    def test_is_stable_for_the_same_booking(
-        self, returns: list[ReturnedDebit]
-    ) -> None:
+    def test_is_stable_for_the_same_booking(self, returns: list[ReturnedDebit]) -> None:
         again = detect_returns(
             parse_statements(decode_statements(FULL_EXPORT.read_bytes()))
         )
@@ -147,9 +143,7 @@ class TestFingerprint:
     def test_differs_between_bookings(self, returns: list[ReturnedDebit]) -> None:
         assert len({debit.fingerprint for debit in returns}) == len(returns)
 
-    def test_carries_the_identifying_values(
-        self, returns: list[ReturnedDebit]
-    ) -> None:
+    def test_carries_the_identifying_values(self, returns: list[ReturnedDebit]) -> None:
         assert returns[0].fingerprint == (
             "50010517/1234567|2026-05-13|2026-05-13|128.11|XY123456"
         )

@@ -99,9 +99,7 @@ class TestBuildDirectory:
     def test_indexes_by_mitglieds_nr(self, directory: MemberDirectory) -> None:
         assert directory.by_mitglieds_nr["XY123456"] == (SINGLE_MEMBER,)
 
-    def test_indexes_every_member_of_a_family(
-        self, directory: MemberDirectory
-    ) -> None:
+    def test_indexes_every_member_of_a_family(self, directory: MemberDirectory) -> None:
         assert directory.by_familien_nr["FA0042F"] == FAMILY
 
     def test_ignores_an_empty_mitglieds_nr(self) -> None:
@@ -167,9 +165,7 @@ class TestMatchMandate:
         assert "Dora Doppelt" in match.detail
         assert "Nils Namensvetter" in match.detail
 
-    def test_unknown_reference_is_unresolved(
-        self, directory: MemberDirectory
-    ) -> None:
+    def test_unknown_reference_is_unresolved(self, directory: MemberDirectory) -> None:
         match = match_mandate(directory, "ZZ999999")
 
         assert match.outcome is MatchOutcome.UNRESOLVED

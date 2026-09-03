@@ -77,7 +77,9 @@ class TestSplitSepaTags:
 
 
 class TestParseStatements:
-    def test_splits_on_the_statement_separator(self, statements: list[Statement]) -> None:
+    def test_splits_on_the_statement_separator(
+        self, statements: list[Statement]
+    ) -> None:
         assert len(statements) == 2
 
     def test_reads_the_account_identification(
@@ -185,8 +187,7 @@ class TestInformationField:
 
     def test_reads_the_booking_text(self, statements: list[Statement]) -> None:
         assert (
-            statements[0].transactions[0].booking_text
-            == "SEPA-LASTSCHR. RETOURE CORE"
+            statements[0].transactions[0].booking_text == "SEPA-LASTSCHR. RETOURE CORE"
         )
 
     def test_joins_a_purpose_split_across_subfields(
@@ -206,7 +207,9 @@ class TestInformationField:
         assert transaction.sepa_tag(SepaTag.MANDATE_REFERENCE) == "XY123456"
 
     def test_joins_the_counterparty_name(self, statements: list[Statement]) -> None:
-        assert statements[0].transactions[0].counterparty_name == "Müller, Erika und Max"
+        assert (
+            statements[0].transactions[0].counterparty_name == "Müller, Erika und Max"
+        )
 
     def test_reads_iban_and_bic(self, statements: list[Statement]) -> None:
         transaction = statements[0].transactions[0]
