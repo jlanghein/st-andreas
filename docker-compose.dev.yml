@@ -1,0 +1,51 @@
+# Throwaway Admidio for reviewing the German wording in a browser.
+#
+# It is seeded from a production backup and therefore holds real member data:
+# every port is bound to 127.0.0.1 and nothing here belongs on a server.
+# Start and stop it with scripts/admidio-dev-stack.sh.
+
+name: admidio-degender-dev
+
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: ${ADMIDIO_DEV_DB_ROOT_PASSWORD:?set in dev.env.local}
+      MARIADB_DATABASE: admidio
+      MARIADB_USER: admidio
+      MARIADB_PASSWORD: ${ADMIDIO_DEV_DB_PASSWORD:?set in dev.env.local}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  admidio:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.admidio
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ADMIDIO_DB_HOST: db
+      # Without an explicit port the image writes the host name into
+      # $g_adm_port, which makes config.php a PHP fatal error.
+      ADMIDIO_DB_PORT: 3306
+      ADMIDIO_DB_NAME: admidio
+      ADMIDIO_DB_USER: admidio
+      ADMIDIO_DB_PASSWORD: ${ADMIDIO_DEV_DB_PASSWORD:?set in dev.env.local}
+      ADMIDIO_DB_TABLE_PRAEFIX: adm
+      ADMIDIO_ORGANISATION: StA
+      ADMIDIO_ROOT_PATH: http://127.0.0.1:${ADMIDIO_DEV_PORT:-8099}
+      TZ: Europe/Berlin
+    ports:
+      - "127.0.0.1:${ADMIDIO_DEV_PORT:-8099}:8080"
+    volumes:
+      - admidio_files:/opt/app-root/src/adm_my_files
+
+volumes:
+  db_data:
+  admidio_files:

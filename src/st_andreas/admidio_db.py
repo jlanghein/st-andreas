@@ -20,10 +20,17 @@ SECRETS_FILE: Final[Path] = Path(__file__).parent.parent.parent / "secrets.env"
 
 SSH_TUNNEL_LOCAL_PORT: Final[int] = 13306
 SSH_TUNNEL_REMOTE_PORT: Final[int] = 3306
+# Default tunnel target: the MariaDB container's address on the Docker bridge.
+# This is a fragile default -- Docker renumbers bridges -- and it is only still
+# here because the original Hetzner host (ubuntu-sta, 91.98.90.85) published no
+# port for the database. Override it with ADMIDIO_TUNNEL_TARGET in secrets.env;
+# the Oerenburg host publishes 127.0.0.1:3306 and uses that instead.
 DOCKER_DB_HOST: Final[str] = "172.18.0.2"
 
 MEMBERS_ROLE_NAME: Final[str] = "StA-Mitglieder"
 PERMANENT_MEMBERSHIP_END: Final[str] = "9999-12-31"
+ADMIDIO_SYSTEM_USER_ID: Final[int] = 1
+USER_IS_VALID: Final[int] = 1
 
 
 class AdmidioField(Enum):
@@ -78,6 +85,8 @@ class SSHConfig:
     host: str
     user: str
     key_path: str
+    tunnel_target: str = DOCKER_DB_HOST
+    proxy_jump: str | None = None
 
 
 def load_secrets(path: Path | None = None) -> dict[str, str]:
@@ -102,10 +111,14 @@ def load_ssh_config(secrets: dict[str, str] | None = None) -> SSHConfig:
     if secrets is None:
         secrets = load_secrets()
 
+    # The HETZNER_* names are historical: the database moved from the Hetzner
+    # vServer to Oerenburg VM 317, which is reachable only through a jump host.
     return SSHConfig(
         host=secrets["HETZNER_SSH_HOST"],
         user=secrets["HETZNER_SSH_USER"],
         key_path=secrets["HETZNER_SSH_KEY_PATH"],
+        tunnel_target=secrets.get("ADMIDIO_TUNNEL_TARGET", DOCKER_DB_HOST),
+        proxy_jump=secrets.get("HETZNER_SSH_PROXYJUMP") or None,
     )
 
 
@@ -140,10 +153,12 @@ def ssh_tunnel(config: SSHConfig | None = None) -> Iterator[None]:
         "-o",
         "ExitOnForwardFailure=yes",
         "-L",
-        f"{SSH_TUNNEL_LOCAL_PORT}:{DOCKER_DB_HOST}:{SSH_TUNNEL_REMOTE_PORT}",
+        f"{SSH_TUNNEL_LOCAL_PORT}:{config.tunnel_target}:{SSH_TUNNEL_REMOTE_PORT}",
         "-N",
-        f"{config.user}@{config.host}",
     ]
+    if config.proxy_jump:
+        cmd += ["-J", config.proxy_jump]
+    cmd.append(f"{config.user}@{config.host}")
     process = subprocess.Popen(
         cmd,
         stdin=subprocess.DEVNULL,
@@ -207,13 +222,18 @@ def fetch_user_field_values(
         JOIN {table_prefix}members m ON u.usr_id = m.mem_usr_id
         JOIN {table_prefix}roles r ON m.mem_rol_id = r.rol_id
         WHERE uf.usf_id IN ({field_id_placeholders})
-          AND u.usr_valid = 1
+          AND u.usr_valid = %s
           AND r.rol_name = %s
           AND (m.mem_end >= CURDATE() OR m.mem_end = %s)
         ORDER BY u.usr_id
     """
 
-    query_params = (*field_ids, MEMBERS_ROLE_NAME, PERMANENT_MEMBERSHIP_END)
+    query_params = (
+        *field_ids,
+        USER_IS_VALID,
+        MEMBERS_ROLE_NAME,
+        PERMANENT_MEMBERSHIP_END,
+    )
 
     with conn.cursor() as cursor:
         cursor.execute(query, query_params)
