@@ -26,8 +26,14 @@ def build_backup_filename(timestamp: datetime) -> str:
 
 
 def build_ssh_command(ssh_config: SSHConfig) -> list[str]:
-    """Build SSH command prefix for remote execution."""
+    """Build SSH command prefix for remote execution.
+
+    Passes -J when the host sits behind a jump box. Without it the backup does
+    not fail fast -- it hangs until the TCP connect times out, which on a
+    nightly scheduler looks like nothing happening at all.
+    """
     expanded_key_path = Path(ssh_config.key_path).expanduser()
+    hop = ["-J", ssh_config.proxy_jump] if ssh_config.proxy_jump else []
     return [
         "ssh",
         "-i",
@@ -36,6 +42,9 @@ def build_ssh_command(ssh_config: SSHConfig) -> list[str]:
         "StrictHostKeyChecking=no",
         "-o",
         "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=15",
+        *hop,
         f"{ssh_config.user}@{ssh_config.host}",
     ]
 
