@@ -125,7 +125,78 @@ def test_unknown_construct_is_reported_as_unresolved() -> None:
     result = degender.transform_text(DRIFT_FIXTURE.read_text(encoding=FILE_ENCODING))
 
     unresolved = {finding.string_name for finding in result.unresolved}
-    assert unresolved == {"SYS_NEW_EDITOR", "SYS_NEW_SPEAKER"}
+    assert unresolved == {
+        "SYS_NEW_EDITOR",
+        "SYS_NEW_SPEAKER",
+        "SYS_NEW_PLACEHOLDER",
+        "SYS_NEW_STAR_FORM",
+    }
+
+
+def test_detector_sees_a_construct_flush_against_a_placeholder() -> None:
+    # Arrange - a stem no rule table knows, with no space around it
+    text = '<string name="SYS_UNKNOWN">an #VAR2#Redakteur:in#VAR3# wenden</string>'
+
+    # Act
+    findings = degender.find_unresolved(text)
+
+    # Assert
+    assert [finding.construct for finding in findings] == ["Redakteur:in"]
+    assert findings[0].string_name == "SYS_UNKNOWN"
+
+
+def test_detector_does_not_depend_on_the_rules_that_rewrite() -> None:
+    # Arrange - the exact shape the rules do handle, with the rules bypassed
+    text = '<string name="SYS_USER">#VAR1#Benutzer:innen#VAR2#</string>'
+
+    findings = degender.find_unresolved(text)
+
+    assert [finding.construct for finding in findings] == ["Benutzer:innen"]
+
+
+def test_detector_reads_strings_that_carry_extra_attributes() -> None:
+    # Arrange - the attribute list that made these elements invisible
+    text = (
+        '<string name="SYS_FOLDER" description="Var2 erzeugt den Link">'
+        "an #VAR2#Redakteur:in#VAR3#</string>"
+    )
+
+    findings = degender.find_unresolved(text)
+
+    assert [finding.string_name for finding in findings] == ["SYS_FOLDER"]
+
+
+def test_every_string_element_is_scanned_whatever_its_attributes() -> None:
+    original = SAMPLE_FIXTURE.read_text(encoding=FILE_ENCODING)
+
+    spans = degender.string_spans(original)
+
+    parsed = ElementTree.fromstring(original).iter(STRING_ELEMENT_TAG)
+    assert [span.name for span in spans] == [
+        element.attrib[STRING_NAME_ATTRIBUTE] for element in parsed
+    ]
+
+
+def test_placeholder_adjacent_token_is_rewritten() -> None:
+    strings = transform_fixture()
+
+    assert strings["SYS_FOLDER_WRITE_ACCESS"] == (
+        "Wenden Sie sich bitte an einen #VAR2#Administrator#VAR3#, "
+        "damit dieser die Schreibrechte prüfen kann."
+    )
+
+
+def test_determiner_slash_pair_and_participle_are_collapsed() -> None:
+    strings = transform_fixture()
+
+    assert strings["SYS_MAKE_FORMER"] == (
+        "Sie können diesen Kontakt zu einem Ehemaligen machen."
+    )
+    assert strings["SYS_SUPERIOR"] == "Vorgesetzter"
+    assert strings["SYS_COUNT_INDIVIDUAL_RECIPIENTS"] == "#VAR1# individuelle Empfänger"
+    assert strings["SYS_COUNT_INDIVIDUAL_RECIPIENT"] == (
+        "#VAR1# individuelle empfangende Person"
+    )
 
 
 def test_unknown_construct_fails_the_run_without_writing(tmp_path: Path) -> None:

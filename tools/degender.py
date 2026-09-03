@@ -13,6 +13,7 @@ waiver is printed on every run.
 
 import re
 import sys
+from bisect import bisect_right
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,10 +25,14 @@ EXIT_SUCCESS: Final[int] = 0
 EXIT_UNRESOLVED_CONSTRUCT: Final[int] = 1
 EXIT_USAGE: Final[int] = 2
 
+# Some elements carry a second attribute (description=, translation=), so the
+# name must be read out of the attribute list rather than assumed to be alone.
 STRING_ELEMENT_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r'(?P<head><string name="(?P<name>[^"]+)">)(?P<body>.*?)(?P<tail></string>)',
+    r"(?P<head><string\b(?P<attributes>[^>]*)>)(?P<body>.*?)(?P<tail></string>)",
     re.DOTALL,
 )
+NAME_ATTRIBUTE_PATTERN: Final[re.Pattern[str]] = re.compile(r'\bname="([^"]*)"')
+UNNAMED_STRING: Final[str] = "<string without a name attribute>"
 
 
 class PhraseRule(NamedTuple):
@@ -118,8 +123,10 @@ CONTEXT_RULES: Final[Mapping[str, tuple[PhraseRule, ...]]] = {
     ),
     "INS_INSTALLATION_SUCCESSFUL": (ADMIN_PAIR_GENITIVE_TYPO, ADMIN_PAIR_GENITIVE),
     "INS_SPOUSE": (PhraseRule("Ehepartner/-in", "Ehepartner"),),
+    "INS_SUBORDINATE": (PhraseRule("Untergebene/-r", "Untergebener"),),
     "ORG_ADD_ORGANIZATION_DESC": (
         PhraseRule("Die/Der aktuelle Benutzer:in", "Der aktuelle Benutzer"),
+        PhraseRule("Der/Die aktuelle Benutzer:in", "Der aktuelle Benutzer"),
         PhraseRule("zur/zum Administrator:in", "zum Administrator"),
     ),
     "ORG_AUTOMATIC_LOGOUT_AFTER_DESC": (
@@ -183,6 +190,9 @@ CONTEXT_RULES: Final[Mapping[str, tuple[PhraseRule, ...]]] = {
         PhraseRule("Alle Administrierende des", "Alle Administratoren des"),
     ),
     "SYS_COMPANION": (PhraseRule("Freund/-in", "Freund"),),
+    "SYS_COUNT_INDIVIDUAL_RECIPIENTS": (
+        PhraseRule("individuelle Empfangende", "individuelle Empfänger"),
+    ),
     "SYS_CONFIGURATION_ALL_USERS": (
         PhraseRule("allen Benutzer:innen", "allen Benutzern"),
     ),
@@ -254,6 +264,9 @@ CONTEXT_RULES: Final[Mapping[str, tuple[PhraseRule, ...]]] = {
             "keine eindeutige Benutzerin bzw. kein eindeutiger Benutzer",
             "kein eindeutiger Benutzer",
         ),
+    ),
+    "SYS_MAKE_FORMER": (
+        PhraseRule("zu einer/einem Ehemaligen", "zu einem Ehemaligen"),
     ),
     "SYS_MAP_LINK_ROUTE_DESC": (
         PhraseRule("dieser Benutzerin bzw. dieses Benutzers", "dieses Benutzers"),
@@ -348,6 +361,7 @@ CONTEXT_RULES: Final[Mapping[str, tuple[PhraseRule, ...]]] = {
     ),
     "SYS_SHOW_ROLE_MEMBERSHIP_DESC": (USER_PAIR_NOMINATIVE,),
     "SYS_SHOW_ROLES_OTHER_ORGANIZATIONS_DESC": (USER_PAIR_NOMINATIVE,),
+    "SYS_SUPERIOR": (PhraseRule("Vorgesetzte/-r", "Vorgesetzter"),),
     "SYS_SYSMAIL_REGISTRATION_ADMINISTRATOR": (NEW_USER_PAIR_NOMINATIVE,),
     "SYS_TEST_MAIL_DESC": (
         PhraseRule(
@@ -387,23 +401,47 @@ TOKEN_REPLACEMENTS: Final[Mapping[str, str]] = {
 GERMAN_LETTER: Final[str] = "A-Za-zÄÖÜäöüß"
 
 TOKEN_PATTERN: Final[re.Pattern[str]] = re.compile(
-    "(?:"
+    f"(?<![{GERMAN_LETTER}])(?:"
     + "|".join(
         re.escape(token) for token in sorted(TOKEN_REPLACEMENTS, key=len, reverse=True)
     )
     + f")(?![{GERMAN_LETTER}])"
 )
 
+# The detector describes gendered *shapes*, never the phrases the rules know, so
+# that a construct no rule can handle still fails the build. It anchors on
+# letters alone: #VARn# placeholders, quotes and punctuation may sit flush
+# against a construct, and one that only the placeholder separates from its
+# neighbours must not slip through.
+GENDER_SEPARATOR: Final[str] = ":*_·/"
+AGENT_NOUN_SUFFIX: Final[str] = "(?:er|or|är|eur|ist|ant|ent|at)"
+NEUTRAL_PARTICIPLE_STEM: Final[str] = (
+    "(?:Teilnehmend|Administrierend|Administriend|Empfangend)"
+)
+DETERMINER: Final[str] = (
+    r"(?i:der|die|das|dem|den|des|ein|eine|einer|einem|einen|eines"
+    r"|kein|keine|keiner|keinem|keinen|zur|zum|vom|beim|dieser?|diesem|diesen)"
+)
+FEMININE_DETERMINER: Final[str] = r"(?:die|der|eine|einer|einem|keine|keiner|dieser?)"
+MASCULINE_DETERMINER: Final[str] = (
+    r"(?:der|die|den|dem|des|ein|einen|einem|eines|kein|keinen|dieser|diesem|diesen)"
+)
+BEFORE: Final[str] = f"(?<![{GERMAN_LETTER}])"
+AFTER: Final[str] = f"(?![{GERMAN_LETTER}])"
+
 UNRESOLVED_CONSTRUCT_PATTERN: Final[re.Pattern[str]] = re.compile(
     "|".join(
         (
-            rf"[{GERMAN_LETTER}]{{2,}}:(?:innen|in|e[nr]?|n|r)(?![{GERMAN_LETTER}])",
-            rf"[{GERMAN_LETTER}]{{3,}}/-?in(?:nen)?(?![{GERMAN_LETTER}])",
+            rf"[{GERMAN_LETTER}]{{2,}}[{GENDER_SEPARATOR}]-?(?:innen|in|e[nr]?|n|r){AFTER}",
             # Upstream misspells the plural as "Benutzerinnnen" in one string,
             # so the repeated n has to be part of the detector.
-            r"\b[A-ZÄÖÜ][a-zäöüß]*(?:er|or|är|eur|ist|ant|ent|at)in(?:n*en)?\b",
-            r"\b(?:Teilnehmend|Administrierend|Administriend|Empfangend)e[mnrs]?\b",
-            r"\b(?:sie oder er|er oder sie|er/sie|sie/er)\b",
+            rf"{BEFORE}[A-ZÄÖÜ][a-zäöüß]*{AGENT_NOUN_SUFFIX}in(?:n*en)?{AFTER}",
+            rf"{BEFORE}{NEUTRAL_PARTICIPLE_STEM}e[mnrs]?{AFTER}",
+            r"(?:sie oder er|er oder sie|er/sie|sie/er)",
+            rf"{BEFORE}{DETERMINER}/{DETERMINER}{AFTER}",
+            rf"{BEFORE}{FEMININE_DETERMINER} (?:[a-zäöüß]+ )?"
+            rf"[A-ZÄÖÜ][a-zäöüß]{{3,}}in(?:n*en)? (?:oder|bzw\.|und) "
+            rf"{MASCULINE_DETERMINER}{AFTER}",
         )
     )
 )
@@ -425,6 +463,14 @@ class RuleKey(NamedTuple):
 class UnresolvedConstruct:
     string_name: str
     construct: str
+    line: int
+
+
+@dataclass(frozen=True)
+class StringSpan:
+    name: str
+    body_start: int
+    body_end: int
 
 
 @dataclass(frozen=True)
@@ -434,6 +480,56 @@ class TransformResult:
     waived_string_names: tuple[str, ...]
     unresolved: tuple[UnresolvedConstruct, ...]
     applied_rules: frozenset[RuleKey]
+
+
+def string_name_of(attributes: str) -> str:
+    match = NAME_ATTRIBUTE_PATTERN.search(attributes)
+    return match.group(1) if match else UNNAMED_STRING
+
+
+def string_spans(text: str) -> list[StringSpan]:
+    """Locate every `<string>` body in the document, whatever attributes it carries."""
+    return [
+        StringSpan(
+            name=string_name_of(match.group("attributes")),
+            body_start=match.start("body"),
+            body_end=match.end("body"),
+        )
+        for match in STRING_ELEMENT_PATTERN.finditer(text)
+    ]
+
+
+def find_unresolved(text: str) -> tuple[UnresolvedConstruct, ...]:
+    """Report every gendered construct left in the document, waivers excepted.
+
+    Scans the whole file rather than the strings the rules recognise: an element
+    the rule engine fails to parse must still be caught here.
+    """
+    spans = string_spans(text)
+    starts = [span.body_start for span in spans]
+    findings: list[UnresolvedConstruct] = []
+    for match in UNRESOLVED_CONSTRUCT_PATTERN.finditer(text):
+        index = bisect_right(starts, match.start()) - 1
+        owner = spans[index] if index >= 0 else None
+        inside = owner is not None and match.start() < owner.body_end
+        name = owner.name if owner is not None and inside else UNNAMED_STRING
+        if name in ACCEPTED_STRINGS:
+            continue
+        line = text.count("\n", 0, match.start()) + 1
+        findings.append(UnresolvedConstruct(name, match.group(), line))
+    return tuple(findings)
+
+
+def waived_strings(text: str) -> tuple[str, ...]:
+    spans = {span.name: span for span in string_spans(text)}
+    return tuple(
+        name
+        for name in ACCEPTED_STRINGS
+        if name in spans
+        and UNRESOLVED_CONSTRUCT_PATTERN.search(
+            text[spans[name].body_start : spans[name].body_end]
+        )
+    )
 
 
 def apply_rules(string_name: str, body: str) -> tuple[str, frozenset[RuleKey]]:
@@ -451,29 +547,23 @@ def apply_rules(string_name: str, body: str) -> tuple[str, frozenset[RuleKey]]:
 def transform_text(text: str) -> TransformResult:
     """Rewrite every string of one Admidio language file to the generic masculine."""
     changed: list[str] = []
-    waived: list[str] = []
-    unresolved: list[UnresolvedConstruct] = []
     applied: set[RuleKey] = set()
 
     def rewrite(match: re.Match[str]) -> str:
-        string_name = match.group("name")
+        string_name = string_name_of(match.group("attributes"))
         body = match.group("body")
         new_body, applied_here = apply_rules(string_name, body)
         applied.update(applied_here)
         if new_body != body:
             changed.append(string_name)
-        for construct in UNRESOLVED_CONSTRUCT_PATTERN.findall(new_body):
-            if string_name in ACCEPTED_STRINGS:
-                waived.append(string_name)
-            else:
-                unresolved.append(UnresolvedConstruct(string_name, construct))
         return match.group("head") + new_body + match.group("tail")
 
+    rewritten = STRING_ELEMENT_PATTERN.sub(rewrite, text)
     return TransformResult(
-        text=STRING_ELEMENT_PATTERN.sub(rewrite, text),
+        text=rewritten,
         changed_string_names=tuple(changed),
-        waived_string_names=tuple(dict.fromkeys(waived)),
-        unresolved=tuple(unresolved),
+        waived_string_names=waived_strings(rewritten),
+        unresolved=find_unresolved(rewritten),
         applied_rules=frozenset(applied),
     )
 

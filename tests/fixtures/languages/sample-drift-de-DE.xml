@@ -1,7 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <resources>
-  <!--Stands in for an Admidio update that introduced wording no rule covers.-->
+  <!--Stands in for an Admidio update that introduced wording no rule covers.
+      The stems here are deliberately absent from every rule table, and each
+      construct is wrapped in punctuation or #VARn# placeholders.-->
   <string name="SYS_USER">Benutzer:in</string>
   <string name="SYS_NEW_EDITOR">Bitte wenden Sie sich an eine:n Redakteur:in.</string>
   <string name="SYS_NEW_SPEAKER">Der Termin wird von der Sprecherin oder dem Sprecher bestätigt.</string>
+  <string name="SYS_NEW_PLACEHOLDER" description="Var2 und Var3 erzeugen den MailTo-Link">Wenden Sie sich an #VAR2#Redakteur:in#VAR3#.</string>
+  <string name="SYS_NEW_STAR_FORM">Für alle Sprecher*innen der Gruppe</string>
 </resources>
