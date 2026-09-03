@@ -1,5 +1,28 @@
 # Infrastructure Access Guide
 
+> **Migration in progress (2026-09-03).** The Admidio host is moving from the
+> Hetzner vServer `ubuntu-sta` (91.98.90.85) to **Oerenburg VM 317
+> `st-andreas` (10.25.10.7)**. VM 317 is built, seeded from a 2026-09-03 dump
+> and verified end to end; the Hetzner box below is still the **authoritative**
+> one until the `sta.hg-hausverwalter.de` DNS cutover. Everything in this file
+> describes the Hetzner box and stays true until then.
+>
+> The new host differs in ways that matter to this repo:
+>
+> | | Hetzner (today) | Oerenburg VM 317 (after cutover) |
+> |---|---|---|
+> | SSH | `root@91.98.90.85`, `~/.ssh/hetzner_key` | `jlanghein@10.25.10.7`, `-J jol@10.10.10.55` |
+> | DB tunnel target | `172.18.0.2` (Docker bridge IP) | `127.0.0.1:3306` (published on loopback) |
+> | phpMyAdmin | `http://91.98.90.85:8081` | **not rebuilt** -- use `ssh -L` |
+> | TLS | Caddy `tls internal`, self-signed | Let's Encrypt via the ubuntu-misc edge |
+>
+> Flip `secrets.env` at cutover -- the block above `HETZNER_SSH_HOST` says
+> exactly which lines. `admidio_db.py` already reads both shapes, via the
+> optional `HETZNER_SSH_PROXYJUMP` and `ADMIDIO_TUNNEL_TARGET` keys.
+>
+> Host-level documentation for both machines lives in the ServerDeployment
+> repo: `docs/langhein/st-andreas-hetzner.md`.
+
 ## Hetzner Server (Admidio)
 
 ### SSH Access
