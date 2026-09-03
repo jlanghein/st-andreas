@@ -161,6 +161,61 @@ uv run python -m st_andreas.pipelines.sepa_plausibility_check
 - Already-paid member exclusion
 - SEPA entry completeness (all required fields present)
 
+### SEPA Rücklastschriften (Returns)
+
+Reads the bank's MT940 export, finds returned direct debits from the annual membership collection, resolves each one back to a member via the SEPA mandate reference, and clears the `Beitrag <year> bezahlt` checkbox while appending a `Vermerk`.
+
+```bash
+# Weekly scheduler, dry run (default: reports, writes nothing)
+uv run sepa-returns
+
+# One import now, still a dry run
+uv run sepa-returns --once
+
+# Actually write: the database has to be named explicitly
+uv run sepa-returns --once --apply admidio
+
+# Offline run against a local copy of the exports
+uv run sepa-returns --once --from-directory ./exports
+
+# Ignore anything booked before a given value date
+uv run sepa-returns --once --since 2026-01-01
+```
+
+**Features:**
+- Picks the newest `STA_<account>_<blz>_<date>_<time>.sta` export (the rolling twelve-month window) and skips both the current-year `_EUR_` variant and the `VMK_` pending bookings
+- Refuses to import when a statement's `:25:` field names a different account
+- Detects GVC `109` / `SEPA-LASTSCHR. RETOURE CORE` with amount, value date, reason, mandate reference and original amount
+- Reads the membership year out of the `SVWZ+` text, falling back to the value date's year
+- Resolves a MitgliedsNr to one member and a FamilienNr to every member of that family; a reference held twice, held as both, or held by nobody is reported and never written
+- Looks up members without filtering to active memberships — a return often concerns someone who has since left
+- Mails a summary to the treasurer when a run finds new returns or cases it cannot resolve; a run with nothing new only logs
+
+**Safety:**
+- Dry run is the default; writing requires `--apply <database>`, and the name must match `ADMIDIO_DB_NAME`
+- The checkbox is only cleared when it still reads `1`, and the Vermerk only goes along with that clearing, so a return reconciled by hand is never overwritten or annotated twice
+- A ledger of return fingerprints (`RETURNS_LEDGER_PATH`, default `data/sepa_returns_ledger.json`) short-circuits the returns that repeat in every daily export
+- All writes of one run happen in a single transaction
+
+**Vermerk format:** `Lastschrift zurückgekommen (128,11 €, 13.05.2026)` — the full booked amount, which decomposes as `OAMT + COAM + 5,11 EUR` (our bank's flat return fee). Return fees are absorbed by the Stamm; the member owes their normal Beitragsstufe amount again.
+
+**Configuration:** `STERNGELD_SMB_*`, `SEPA_ACCOUNT_NUMBER`, `SEPA_BLZ`, and optionally `RETURNS_REPORT_TO` plus `SMTP_*` — see `secrets.env.example`. Reading the share requires `smbclient` (Samba client tools) on the host.
+
+#### Systemd Service
+
+The returns pipeline runs weekly as a systemd user service, alongside the backup scheduler:
+
+```bash
+systemctl --user status st-andreas-sepa-returns
+journalctl --user -u st-andreas-sepa-returns -f
+```
+
+The unit's `ExecStart` carries the explicit write target:
+
+```ini
+ExecStart=/usr/bin/env uv run sepa-returns --apply admidio
+```
+
 ### Spendenquittungen (Donation Receipts)
 
 Fetches member data from Admidio database and generates Excel spreadsheet for mail merge document creation.
