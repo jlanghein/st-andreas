@@ -8,9 +8,12 @@ from decimal import Decimal
 import pytest
 
 from st_andreas.admidio_db import AdmidioField
+from st_andreas.member_pipeline.pipeline import ADMIDIO_SYSTEM_USER_ID as SYSTEM_USER
 from st_andreas.sepa_returns.apply import (
+    ADMIDIO_SYSTEM_USER_ID,
     BEITRAG_CHECKED,
     BEITRAG_CLEARED,
+    LOG_COMMENT_MAX_LENGTH,
     MemberFieldState,
     PlanStatus,
     UnsupportedYearError,
@@ -18,7 +21,9 @@ from st_andreas.sepa_returns.apply import (
     beitrag_field_for_year,
     beitrag_fields,
     format_amount,
+    format_log_comment,
     format_vermerk_line,
+    log_rows,
     plan_return,
     plan_returns,
 )
@@ -71,6 +76,7 @@ DIRECTORY = build_directory([MEMBER, *FAMILY, *DUPLICATES])
 BEITRAG_2026 = AdmidioField.BEITRAG_2026_BEZAHLT.value
 VERMERK = AdmidioField.VERMERK.value
 EXPECTED_VERMERK = "Lastschrift zurückgekommen (128,11 €, 13.05.2026)"
+EXPECTED_LOG_COMMENT = "Rücklastschrift XY123456 13.05.2026"
 
 
 def build_debit(
@@ -127,6 +133,14 @@ class TestFormatting:
 
     def test_builds_the_established_vermerk_line(self) -> None:
         assert format_vermerk_line(build_debit()) == EXPECTED_VERMERK
+
+    def test_log_comment_identifies_the_return(self) -> None:
+        assert format_log_comment(build_debit()) == EXPECTED_LOG_COMMENT
+
+    def test_log_comment_fits_the_column(self) -> None:
+        comment = format_log_comment(build_debit(mandate_reference="X" * 400))
+
+        assert len(comment) <= LOG_COMMENT_MAX_LENGTH
 
 
 class TestPlanReturn:
@@ -240,3 +254,64 @@ class TestPlanReturns:
             PlanStatus.APPLICABLE,
             PlanStatus.UNRESOLVED,
         ]
+
+
+class TestLogRows:
+    def test_one_row_per_changed_field(self) -> None:
+        plan = plan_return(build_debit(), DIRECTORY, checkbox_state(1), EMPTY_LEDGER)
+
+        rows = log_rows(plan.writes)
+
+        assert [row.field for row in rows] == [
+            AdmidioField.BEITRAG_2026_BEZAHLT,
+            AdmidioField.VERMERK,
+        ]
+
+    def test_carries_the_old_and_new_value(self) -> None:
+        plan = plan_return(build_debit(), DIRECTORY, checkbox_state(1), EMPTY_LEDGER)
+
+        checkbox_row = log_rows(plan.writes)[0]
+
+        assert (checkbox_row.old_value, checkbox_row.new_value) == (
+            BEITRAG_CHECKED,
+            BEITRAG_CLEARED,
+        )
+
+    def test_a_field_without_a_previous_row_logs_no_old_value(self) -> None:
+        plan = plan_return(build_debit(), DIRECTORY, checkbox_state(1), EMPTY_LEDGER)
+
+        vermerk_row = log_rows(plan.writes)[1]
+
+        assert vermerk_row.old_value is None
+        assert vermerk_row.new_value == EXPECTED_VERMERK
+
+    def test_keeps_the_previous_vermerk_as_the_old_value(self) -> None:
+        state = checkbox_state(1) | {
+            (1, VERMERK): MemberFieldState(usd_id=99, value="Zahlt per Überweisung")
+        }
+        plan = plan_return(build_debit(), DIRECTORY, state, EMPTY_LEDGER)
+
+        assert log_rows(plan.writes)[1].old_value == "Zahlt per Überweisung"
+
+    def test_the_system_account_is_the_actor(self) -> None:
+        plan = plan_return(build_debit(), DIRECTORY, checkbox_state(1), EMPTY_LEDGER)
+
+        assert all(
+            row.created_by_user_id == ADMIDIO_SYSTEM_USER_ID
+            for row in log_rows(plan.writes)
+        )
+
+    def test_the_actor_is_the_same_one_the_upload_pipeline_uses(self) -> None:
+        assert ADMIDIO_SYSTEM_USER_ID == SYSTEM_USER
+
+    def test_every_row_names_the_return(self) -> None:
+        plan = plan_return(build_debit(), DIRECTORY, checkbox_state(1), EMPTY_LEDGER)
+
+        assert all(row.comment == EXPECTED_LOG_COMMENT for row in log_rows(plan.writes))
+
+    def test_a_skipped_write_leaves_no_history(self) -> None:
+        plan = plan_return(
+            build_debit(), DIRECTORY, checkbox_state(1, BEITRAG_CLEARED), EMPTY_LEDGER
+        )
+
+        assert log_rows(plan.writes) == []

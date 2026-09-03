@@ -195,7 +195,8 @@ uv run sepa-returns --once --since 2026-01-01
 - Dry run is the default; writing requires `--apply <database>`, and the name must match `ADMIDIO_DB_NAME`
 - The checkbox is only cleared when it still reads `1`, and the Vermerk only goes along with that clearing, so a return reconciled by hand is never overwritten or annotated twice
 - A ledger of return fingerprints (`RETURNS_LEDGER_PATH`, default `data/sepa_returns_ledger.json`) short-circuits the returns that repeat in every daily export
-- All writes of one run happen in a single transaction
+- Every changed field also gets an `adm_user_log` row (actor: Admidio's System account, comment: mandate reference and value date), so the change shows up in the member's history in Admidio's own interface
+- All writes of one run, history rows included, happen in a single transaction
 
 **Vermerk format:** `Lastschrift zurückgekommen (128,11 €, 13.05.2026)` — the full booked amount, which decomposes as `OAMT + COAM + 5,11 EUR` (our bank's flat return fee). Return fees are absorbed by the Stamm; the member owes their normal Beitragsstufe amount again.
 

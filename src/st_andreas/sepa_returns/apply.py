@@ -35,12 +35,20 @@ BEITRAG_FIELD_PREFIX: Final[str] = "BEITRAG_"
 BEITRAG_FIELD_SUFFIX: Final[str] = "_BEZAHLT"
 
 VERMERK_TEMPLATE: Final[str] = "Lastschrift zurückgekommen ({amount} €, {date})"
-VERMERK_DATE_FORMAT: Final[str] = "%d.%m.%Y"
+GERMAN_DATE_FORMAT: Final[str] = "%d.%m.%Y"
 VERMERK_LINE_SEPARATOR: Final[str] = "\n"
 GERMAN_DECIMAL_SEPARATOR: Final[str] = ","
 AMOUNT_QUANTUM: Final[Decimal] = Decimal("0.01")
 
 USER_IS_VALID: Final[int] = 1
+
+LOG_COMMENT_TEMPLATE: Final[str] = "Rücklastschrift {mandate} {date}"
+LOG_COMMENT_MAX_LENGTH: Final[int] = 255
+
+# Admidio's built-in System account. Duplicated from member_pipeline.pipeline
+# rather than imported: that module pulls in pandas and the Excel export path,
+# which this package has no business depending on. A test pins the two equal.
+ADMIDIO_SYSTEM_USER_ID: Final[int] = 1
 
 IDENTITY_FIELDS: Final[tuple[AdmidioField, ...]] = (
     AdmidioField.MITGLIEDSNR,
@@ -93,6 +101,23 @@ class FieldWrite:
     usd_id: int | None
     old_value: str | None
     new_value: str
+    log_comment: str
+
+
+@dataclass(frozen=True)
+class UserLogRow:
+    """One row of ``adm_user_log``, Admidio's own field-change history.
+
+    The member history in Admidio's interface is built from this table, so a
+    field change without one is a change nobody can trace back.
+    """
+
+    user_id: int
+    field: AdmidioField
+    old_value: str | None
+    new_value: str
+    created_by_user_id: int
+    comment: str
 
 
 @dataclass(frozen=True)
@@ -154,8 +179,32 @@ def format_vermerk_line(debit: ReturnedDebit) -> str:
     """Build the Vermerk line for a returned debit."""
     return VERMERK_TEMPLATE.format(
         amount=format_amount(debit.booked_amount),
-        date=debit.value_date.strftime(VERMERK_DATE_FORMAT),
+        date=debit.value_date.strftime(GERMAN_DATE_FORMAT),
     )
+
+
+def format_log_comment(debit: ReturnedDebit) -> str:
+    """Identify the return behind a change, for the Admidio history."""
+    comment = LOG_COMMENT_TEMPLATE.format(
+        mandate=debit.mandate_reference,
+        date=debit.value_date.strftime(GERMAN_DATE_FORMAT),
+    )
+    return comment[:LOG_COMMENT_MAX_LENGTH]
+
+
+def log_rows(writes: Iterable[FieldWrite]) -> list[UserLogRow]:
+    """Build the history rows for a set of field writes, one per changed field."""
+    return [
+        UserLogRow(
+            user_id=write.user_id,
+            field=write.field,
+            old_value=write.old_value,
+            new_value=write.new_value,
+            created_by_user_id=ADMIDIO_SYSTEM_USER_ID,
+            comment=write.log_comment,
+        )
+        for write in writes
+    ]
 
 
 def plan_returns(
@@ -298,7 +347,7 @@ class AdmidioRepository:
         }
 
     def apply(self, writes: Sequence[FieldWrite]) -> int:
-        """Execute all writes in a single transaction."""
+        """Execute all writes and their history rows in a single transaction."""
         update = f"""
             UPDATE {self.table_prefix}user_data
             SET usd_value = %s
@@ -309,6 +358,12 @@ class AdmidioRepository:
                 (usd_usr_id, usd_usf_id, usd_value)
             VALUES (%s, %s, %s)
         """
+        log = f"""
+            INSERT INTO {self.table_prefix}user_log
+                (usl_usr_id, usl_usf_id, usl_value_old, usl_value_new,
+                 usl_usr_id_create, usl_comment)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
 
         with self.connection.cursor() as cursor:
             for write in writes:
@@ -318,6 +373,19 @@ class AdmidioRepository:
                     cursor.execute(
                         insert, (write.user_id, write.field.value, write.new_value)
                     )
+
+            for row in log_rows(writes):
+                cursor.execute(
+                    log,
+                    (
+                        row.user_id,
+                        row.field.value,
+                        row.old_value,
+                        row.new_value,
+                        row.created_by_user_id,
+                        row.comment,
+                    ),
+                )
 
         self.connection.commit()
         return len(writes)
@@ -353,6 +421,7 @@ def _member_writes(
             usd_id=checkbox.usd_id,
             old_value=checkbox.value,
             new_value=BEITRAG_CLEARED,
+            log_comment=format_log_comment(debit),
         )
     ]
 
@@ -389,4 +458,5 @@ def _vermerk_write(
         usd_id=state.usd_id if state else None,
         old_value=state.value if state else None,
         new_value=appended,
+        log_comment=format_log_comment(debit),
     )
