@@ -11,7 +11,11 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Protocol
 
-from st_andreas.admidio_db import ADMIDIO_SYSTEM_USER_ID, AdmidioField
+from st_andreas.admidio_db import (
+    ADMIDIO_SYSTEM_USER_ID,
+    USER_IS_VALID,
+    AdmidioField,
+)
 from st_andreas.sepa_returns.match import (
     MandateMatch,
     MatchOutcome,
@@ -39,8 +43,6 @@ GERMAN_DATE_FORMAT: Final[str] = "%d.%m.%Y"
 VERMERK_LINE_SEPARATOR: Final[str] = "\n"
 GERMAN_DECIMAL_SEPARATOR: Final[str] = ","
 AMOUNT_QUANTUM: Final[Decimal] = Decimal("0.01")
-
-USER_IS_VALID: Final[int] = 1
 
 LOG_COMMENT_TEMPLATE: Final[str] = "Rücklastschrift {mandate} {date}"
 LOG_COMMENT_MAX_LENGTH: Final[int] = 255
