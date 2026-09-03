@@ -1,16 +1,19 @@
 # Admidio with the German UI rewritten to the generic masculine.
 #
 # Build from the repository root so that tools/degender.py is in the context:
-#   docker build -f docker/Dockerfile.admidio -t admidio-sta:v4.3.17 .
+#   docker build -f docker/Dockerfile.admidio -t admidio-sta:4.3.16 .
 #
-# The transform runs on whatever the pinned upstream image ships, so an
-# Admidio update is a rebuild. A construct no rule covers fails this build.
+# The base is pinned by digest to exactly the image VM 317 runs (Admidio 4.3.16),
+# so the derived image is a pure wording patch: deploying it changes no Admidio
+# version. Bumping Admidio means editing ADMIDIO_IMAGE deliberately and
+# re-running the transform against the new bits — a tag could move on its own,
+# a digest cannot.
 
-ARG ADMIDIO_VERSION=v4.3.17
+ARG ADMIDIO_IMAGE=admidio/admidio@sha256:bd24f79a38ff2163ff4bc465792f3f3d7113a799dc91a770c26aaf82d66a1f88
 ARG PYTHON_VERSION=3.12-slim
 ARG ADMIDIO_ROOT=/opt/app-root/src
 
-FROM admidio/admidio:${ADMIDIO_VERSION} AS upstream
+FROM ${ADMIDIO_IMAGE} AS upstream
 
 FROM python:${PYTHON_VERSION} AS transform
 ARG ADMIDIO_ROOT
@@ -20,7 +23,7 @@ COPY --from=upstream ${ADMIDIO_ROOT}/adm_program/languages/de.xml ./
 COPY tools/degender.py /usr/local/bin/degender.py
 RUN python3 /usr/local/bin/degender.py de-DE.xml de.xml
 
-FROM admidio/admidio:${ADMIDIO_VERSION}
+FROM ${ADMIDIO_IMAGE}
 ARG ADMIDIO_ROOT
 # startup.sh restores adm_program from provisioning/ whenever the directory is
 # missing or empty, so both copies have to carry the patched wording.

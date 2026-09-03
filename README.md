@@ -315,10 +315,13 @@ Umschreibung passiert deshalb beim Image-Build:
 
 ```bash
 # Aus dem Repository-Root, tools/degender.py muss im Build-Kontext liegen
-docker build -f docker/Dockerfile.admidio \
-  --build-arg ADMIDIO_VERSION=v4.3.17 \
-  -t admidio-sta:v4.3.17 .
+docker build -f docker/Dockerfile.admidio -t admidio-sta:4.3.16 .
 ```
+
+Das Basis-Image ist **per Digest** auf genau den Stand gepinnt, den VM 317 fährt
+(`sha256:bd24f79a…`, Admidio 4.3.16). Das abgeleitete Image ist damit ein reiner
+Sprach-Patch: Ausrollen ändert keine Admidio-Version. Ein Versionssprung ist eine bewusste
+Änderung dieses Digests — ein Tag kann sich von selbst verschieben, ein Digest nicht.
 
 `tools/degender.py` schreibt `de-DE.xml` und `de.xml` um: Doppelpunktformen und Artikel
 regelbasiert, Paarformen und neutrale Partizipien über eine Tabelle je `<string name>`.
@@ -342,10 +345,9 @@ scripts/admidio-dev-stack.sh down    # stoppen und beide Volumes löschen
 ```
 
 Danach läuft Admidio auf <http://127.0.0.1:8099>. Die Zugangsdaten sind die der
-Produktion, weil die Kopie aus `backups/admidio_*.sql.gz` stammt. Beim ersten Aufruf
-erscheint der Update-Assistent (Datenbank 4.3.16, Image v4.3.17) — die Anmeldung dort mit
-einem Administrator-Konto aktualisiert die Wegwerf-Kopie und führt danach in die normale
-Oberfläche.
+Produktion, weil die Kopie aus `backups/admidio_*.sql.gz` stammt. Image und Datenbank
+haben beide Version 4.3.16, es erscheint also kein Update-Assistent — die Startseite ist
+direkt die gewohnte Oberfläche.
 
 **Der Stack enthält echte Mitgliederdaten.** Alle Ports sind an `127.0.0.1` gebunden;
 er gehört auf keinen Server und hinter keinen Reverse Proxy. Die generierten Passwörter
