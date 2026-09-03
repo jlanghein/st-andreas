@@ -29,6 +29,8 @@ DOCKER_DB_HOST: Final[str] = "172.18.0.2"
 
 MEMBERS_ROLE_NAME: Final[str] = "StA-Mitglieder"
 PERMANENT_MEMBERSHIP_END: Final[str] = "9999-12-31"
+ADMIDIO_SYSTEM_USER_ID: Final[int] = 1
+USER_IS_VALID: Final[int] = 1
 
 
 class AdmidioField(Enum):
@@ -220,13 +222,18 @@ def fetch_user_field_values(
         JOIN {table_prefix}members m ON u.usr_id = m.mem_usr_id
         JOIN {table_prefix}roles r ON m.mem_rol_id = r.rol_id
         WHERE uf.usf_id IN ({field_id_placeholders})
-          AND u.usr_valid = 1
+          AND u.usr_valid = %s
           AND r.rol_name = %s
           AND (m.mem_end >= CURDATE() OR m.mem_end = %s)
         ORDER BY u.usr_id
     """
 
-    query_params = (*field_ids, MEMBERS_ROLE_NAME, PERMANENT_MEMBERSHIP_END)
+    query_params = (
+        *field_ids,
+        USER_IS_VALID,
+        MEMBERS_ROLE_NAME,
+        PERMANENT_MEMBERSHIP_END,
+    )
 
     with conn.cursor() as cursor:
         cursor.execute(query, query_params)

@@ -26,6 +26,7 @@ fetch-members-all = "st_andreas.pipelines.fetch_members_all:main"
 fetch-members-no-kontoinhaber = "st_andreas.pipelines.fetch_members_no_kontoinhaber:main"
 members-27-plus = "st_andreas.pipelines.members_27_plus:main"
 sepa-lastschrift = "st_andreas.pipelines.sepa_lastschrift:main"
+sepa-returns = "st_andreas.pipelines.sepa_returns:main"
 spendenquittungen = "st_andreas.pipelines.spendenquittungen:main"
 sippe = "st_andreas.sippe.cli:main"
 
