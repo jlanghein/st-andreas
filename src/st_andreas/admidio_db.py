@@ -24,6 +24,7 @@ DOCKER_DB_HOST: Final[str] = "172.18.0.2"
 
 MEMBERS_ROLE_NAME: Final[str] = "StA-Mitglieder"
 PERMANENT_MEMBERSHIP_END: Final[str] = "9999-12-31"
+ADMIDIO_SYSTEM_USER_ID: Final[int] = 1
 
 
 class AdmidioField(Enum):

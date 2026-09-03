@@ -11,7 +11,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Protocol
 
-from st_andreas.admidio_db import AdmidioField
+from st_andreas.admidio_db import ADMIDIO_SYSTEM_USER_ID, AdmidioField
 from st_andreas.sepa_returns.match import (
     MandateMatch,
     MatchOutcome,
@@ -44,11 +44,6 @@ USER_IS_VALID: Final[int] = 1
 
 LOG_COMMENT_TEMPLATE: Final[str] = "Rücklastschrift {mandate} {date}"
 LOG_COMMENT_MAX_LENGTH: Final[int] = 255
-
-# Admidio's built-in System account. Duplicated from member_pipeline.pipeline
-# rather than imported: that module pulls in pandas and the Excel export path,
-# which this package has no business depending on. A test pins the two equal.
-ADMIDIO_SYSTEM_USER_ID: Final[int] = 1
 
 IDENTITY_FIELDS: Final[tuple[AdmidioField, ...]] = (
     AdmidioField.MITGLIEDSNR,

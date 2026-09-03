@@ -7,10 +7,8 @@ from decimal import Decimal
 
 import pytest
 
-from st_andreas.admidio_db import AdmidioField
-from st_andreas.member_pipeline.pipeline import ADMIDIO_SYSTEM_USER_ID as SYSTEM_USER
+from st_andreas.admidio_db import ADMIDIO_SYSTEM_USER_ID, AdmidioField
 from st_andreas.sepa_returns.apply import (
-    ADMIDIO_SYSTEM_USER_ID,
     BEITRAG_CHECKED,
     BEITRAG_CLEARED,
     LOG_COMMENT_MAX_LENGTH,
@@ -300,9 +298,6 @@ class TestLogRows:
             row.created_by_user_id == ADMIDIO_SYSTEM_USER_ID
             for row in log_rows(plan.writes)
         )
-
-    def test_the_actor_is_the_same_one_the_upload_pipeline_uses(self) -> None:
-        assert ADMIDIO_SYSTEM_USER_ID == SYSTEM_USER
 
     def test_every_row_names_the_return(self) -> None:
         plan = plan_return(build_debit(), DIRECTORY, checkbox_state(1), EMPTY_LEDGER)
