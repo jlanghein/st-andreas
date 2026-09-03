@@ -370,7 +370,7 @@ Die deutsche Admidio-Oberfläche wird auf das generische Maskulinum umgestellt. 
 Umschreibung passiert deshalb beim Image-Build:
 
 ```bash
-# Aus dem Repository-Root, tools/degender.py muss im Build-Kontext liegen
+# Aus dem Repository-Root, tools/degender*.py muss im Build-Kontext liegen
 docker build -f docker/Dockerfile.admidio -t admidio-sta:4.3.16 .
 ```
 
@@ -381,6 +381,7 @@ Sprach-Patch: Ausrollen ändert keine Admidio-Version. Ein Versionssprung ist ei
 
 `tools/degender.py` schreibt `de-DE.xml` und `de.xml` um: Doppelpunktformen und Artikel
 regelbasiert, Paarformen und neutrale Partizipien über eine Tabelle je `<string name>`.
+Die Regeltabellen selbst stehen in `tools/degender_rules.py`.
 Eine Formulierung, die keine Regel abdeckt, lässt den Build fehlschlagen; einzelne
 Strings lassen sich in `ACCEPTED_STRINGS` begründet ausnehmen und werden bei jedem Build
 ausgegeben. Ablauf beim Admidio-Update: siehe `docs/infrastructure.md`.

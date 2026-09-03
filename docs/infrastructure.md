@@ -164,7 +164,8 @@ the DNS cutover.
 docker build -f docker/Dockerfile.admidio -t admidio-sta:4.3.16 .
 ```
 
-Run this from the repository root — the build needs `tools/degender.py` in the context.
+Run this from the repository root — the build needs `tools/degender.py` and its rule
+tables in `tools/degender_rules.py` in the context.
 The base digest comes from the `ADMIDIO_IMAGE` default in the Dockerfile; do not pass a
 different one just to make a build succeed.
 
@@ -185,7 +186,7 @@ between two pulls; a digest cannot, which is the whole point of the pin.
 3. Rebuild. The transform prints one line per file plus every waived string. If it reports
    `UNRESOLVED`, the new Admidio version reworded a string and the build fails on purpose:
    add a rule to `CONTEXT_RULES` (or a token to `TOKEN_REPLACEMENTS`) in
-   `tools/degender.py`, extend `tests/test_degender.py`, rebuild. `STALE RULE` lines are
+   `tools/degender_rules.py`, extend `tests/test_degender.py`, rebuild. `STALE RULE` lines are
    informational — they mean upstream dropped a phrase we rewrite.
 
 4. For an urgent security update that must not wait for a wording fix, add the string id
@@ -205,6 +206,7 @@ Run the transform against the running container after every recreate:
 
 ```bash
 docker cp tools/degender.py admidio:/tmp/degender.py
+docker cp tools/degender_rules.py admidio:/tmp/degender_rules.py
 docker exec admidio python3 /tmp/degender.py \
   /opt/app-root/src/adm_program/languages/de-DE.xml \
   /opt/app-root/src/adm_program/languages/de.xml
