@@ -362,3 +362,49 @@ uv run pytest -v -m "not requires_database"
 ## Documentation
 
 - `docs/infrastructure.md` - Server access and database credentials
+
+### Admidio Sprachanpassung
+
+Die deutsche Admidio-Oberfläche wird auf das generische Maskulinum umgestellt. Da
+`adm_program` kein Docker-Volume ist, überlebt eine direkte Änderung kein Update — die
+Umschreibung passiert deshalb beim Image-Build:
+
+```bash
+# Aus dem Repository-Root, tools/degender.py muss im Build-Kontext liegen
+docker build -f docker/Dockerfile.admidio -t admidio-sta:4.3.16 .
+```
+
+Das Basis-Image ist **per Digest** auf genau den Stand gepinnt, den VM 317 fährt
+(`sha256:bd24f79a…`, Admidio 4.3.16). Das abgeleitete Image ist damit ein reiner
+Sprach-Patch: Ausrollen ändert keine Admidio-Version. Ein Versionssprung ist eine bewusste
+Änderung dieses Digests — ein Tag kann sich von selbst verschieben, ein Digest nicht.
+
+`tools/degender.py` schreibt `de-DE.xml` und `de.xml` um: Doppelpunktformen und Artikel
+regelbasiert, Paarformen und neutrale Partizipien über eine Tabelle je `<string name>`.
+Eine Formulierung, die keine Regel abdeckt, lässt den Build fehlschlagen; einzelne
+Strings lassen sich in `ACCEPTED_STRINGS` begründet ausnehmen und werden bei jedem Build
+ausgegeben. Ablauf beim Admidio-Update: siehe `docs/infrastructure.md`.
+
+```bash
+uv run pytest tests/test_degender.py
+```
+
+#### Lokaler Review-Stack
+
+Zum Ansehen im Browser gibt es einen Wegwerf-Stack aus MariaDB 10.11 und dem gepatchten
+Admidio-Image:
+
+```bash
+scripts/admidio-dev-stack.sh up      # bauen, starten, aus dem neuesten Backup befüllen
+scripts/admidio-dev-stack.sh logins  # vorhandene Anmeldenamen der Kopie auflisten
+scripts/admidio-dev-stack.sh down    # stoppen und beide Volumes löschen
+```
+
+Danach läuft Admidio auf <http://127.0.0.1:8099>. Die Zugangsdaten sind die der
+Produktion, weil die Kopie aus `backups/admidio_*.sql.gz` stammt. Image und Datenbank
+haben beide Version 4.3.16, es erscheint also kein Update-Assistent — die Startseite ist
+direkt die gewohnte Oberfläche.
+
+**Der Stack enthält echte Mitgliederdaten.** Alle Ports sind an `127.0.0.1` gebunden;
+er gehört auf keinen Server und hinter keinen Reverse Proxy. Die generierten Passwörter
+liegen in `dev.env.local` (gitignored), das Backup-Verzeichnis wird nur gelesen.

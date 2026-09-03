@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+  <!--Hand-built excerpt of adm_program/languages/de-DE.xml (Admidio 4.3.16).
+      One representative string per construct group, not the upstream file.-->
+  <string name="SYS_USER">Benutzer:in</string>
+  <string name="SYS_MULTIPLE_RECIPIENTS_DESC">Alternativ kann das Empfängerfeld (TO) mit der Administrator:innen-Adresse gefüllt werden. (Voreinstellung: Absender:in)</string>
+  <string name="SYS_DEFAULT_LIST_NOT_SET_UP">Wenden Sie sich bitte an eine:n Administrator:in, damit dieser eine Liste als Standardliste deklariert.</string>
+  <string name="SYS_LOG_ALL_CHANGES_DESC">Änderungen in Profilfeldern werden für jede:n Benutzer:in und jedes Feld mitgeschrieben. Dabei wird der bisherige und der neue Wert, sowie die Benutzerin oder der Benutzer, der die Änderung durchgeführt hat, mit Zeitstempel gespeichert. (Voreinstellung: ja)</string>
+  <string name="ORG_ADD_ORGANIZATION_DESC">Die/Der aktuelle Benutzer:in wird dort automatisch zur/zum Administrator:in ernannt.</string>
+  <string name="ORG_VARIABLE_FIRST_NAME">Vorname der Benutzerin oder des Benutzers aus dem jeweiligen E-Mailkontext</string>
+  <string name="SYS_EVENT_CATEGORIES_ROLES_DIFFERENT">Sie haben bei den Teilnehmenden Rollen zugeordnet, welche bei der gewählten Kategorie nicht das Recht haben die Veranstaltungen zu sehen.</string>
+  <string name="SYS_PARTICIPANTS_LIMIT">Begrenzung der Teilnehmenden</string>
+  <string name="SYS_SHOW_PARTICIPANTS">Teilnehmende anzeigen</string>
+  <string name="SYS_CONFIGURATION_ALL_USERS">Konfiguration allen Benutzer:innen zur Verfügung stellen</string>
+  <string name="SYS_FOLDER_WRITE_ACCESS" description="Var2 und Var3 erzeugen den MailTo-Link">Wenden Sie sich bitte an eine:n #VAR2#Administrator:in#VAR3#, damit dieser die Schreibrechte prüfen kann.</string>
+  <string name="SYS_COUNT_INDIVIDUAL_RECIPIENTS" description="Plural">#VAR1# individuelle Empfangende</string>
+  <string name="SYS_MAKE_FORMER">Sie können diesen Kontakt zu einer/einem Ehemaligen machen.</string>
+  <string name="SYS_SUPERIOR">Vorgesetzte/-r</string>
+  <string name="INS_COHABITANT_FEMALE">Partnerin</string>
+  <string name="SYS_DATE_FORMAT_HOUR">H:i</string>
+  <string name="SYS_MEMBERS">Mitglieder</string>
+  <string name="SYS_COUNT_INDIVIDUAL_RECIPIENT" description="Singular">#VAR1# individuelle empfangende Person</string>
+</resources>
