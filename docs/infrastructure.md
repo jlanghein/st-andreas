@@ -113,6 +113,58 @@ sshpass -p '<password>' ssh administrator@10.10.10.18
 
 ---
 
+## Admidio Update Procedure (patched German wording)
+
+The German UI is served from a **derived image**: `docker/Dockerfile.admidio` starts
+from a pinned `admidio/admidio:<version>` and rewrites `de-DE.xml` and `de.xml` to the
+generic masculine at build time with `tools/degender.py`. `adm_program` is not a Docker
+volume, so a plain `docker compose pull` throws the wording away — the rebuild is part
+of the update, not an optional extra.
+
+### Updating Admidio
+
+1. Pick the new tag from https://hub.docker.com/r/admidio/admidio/tags and set it:
+   ```bash
+   docker build -f docker/Dockerfile.admidio \
+     --build-arg ADMIDIO_VERSION=v4.3.17 \
+     -t admidio-sta:v4.3.17 .
+   ```
+   Run this from the repository root — the build needs `tools/degender.py` in the context.
+
+2. Read the build output. The transform prints one line per file plus every waived
+   string. If it reports `UNRESOLVED`, the new Admidio version reworded a string and the
+   build fails on purpose: add a rule to `CONTEXT_RULES` (or a token to
+   `TOKEN_REPLACEMENTS`) in `tools/degender.py`, extend `tests/test_degender.py`, rebuild.
+   `STALE RULE` lines are informational — they mean upstream dropped a phrase we rewrite.
+
+3. For an urgent security update that must not wait for a wording fix, add the string id
+   to `ACCEPTED_STRINGS` with a reason. The waiver is printed on every later build, so it
+   stays visible until it is removed.
+
+4. Review the result locally before deploying (see `docker-compose.dev.yml` and
+   `scripts/admidio-dev-stack.sh`), then deploy the image on the Hetzner host and pin the
+   same explicit tag in the server's `docker-compose.yml`. `latest` is never a valid pin
+   here: it silently moves the version and skips the transform.
+
+5. Recreate the container and confirm the wording survived, for example by loading
+   `https://sta.hg-hausverwalter.de` and checking that no `:innen` form is visible.
+
+### Fallback if the rebuild is ever unwelcome
+
+Run the transform against the running container after every recreate:
+
+```bash
+docker cp tools/degender.py admidio:/tmp/degender.py
+docker exec admidio python3 /tmp/degender.py \
+  /opt/app-root/src/adm_program/languages/de-DE.xml \
+  /opt/app-root/src/adm_program/languages/de.xml
+```
+
+The official image has no Python interpreter, so this needs one installed in the
+container first. It also leaves the UI unpatched between a recreate and the next run.
+
+---
+
 ## Database Backups
 
 ### Overview
