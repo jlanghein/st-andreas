@@ -23,6 +23,15 @@ from st_andreas.admidio_db import (
 from st_andreas.member_pipeline.config import PipelineConfig
 from st_andreas.member_pipeline.excel_export import export_to_excel
 
+# Where Admidio keeps uploaded documents on the server, as seen from the HOST.
+# This is a Docker volume's _data directory, so it is root-owned and the upload
+# below needs sudo to write into it.
+#
+# The default below is the Hetzner box's ANONYMOUS volume -- the hash is the
+# volume id Docker generated, and it is unreadable on purpose: nothing names it.
+# Oerenburg VM 317 uses a named volume instead, so set ADMIDIO_DOCUMENTS_PATH in
+# secrets.env there:
+#   /var/lib/docker/volumes/st-andreas_admidio_files/_data/documents_sta/Mitgliederliste
 ADMIDIO_VOLUME_PATH: Final[str] = (
     "/var/lib/docker/volumes/"
     "756e80f3bc09b1883b34a1389fce457f3561e7711d4ec592edbda3f2b422ad5a/"
@@ -111,31 +120,42 @@ def _upload_to_admidio(
     """Upload file to Admidio and register in database."""
     ssh_config = load_ssh_config()
     db_config = load_db_config()
+    secrets = load_secrets()
 
     expanded_key_path = Path(ssh_config.key_path).expanduser()
-    remote_path = f"{ADMIDIO_VOLUME_PATH}/{remote_filename}"
+    volume_path = secrets.get("ADMIDIO_DOCUMENTS_PATH", ADMIDIO_VOLUME_PATH)
+    remote_path = f"{volume_path}/{remote_filename}"
 
-    scp_cmd = [
-        "scp",
+    # Common options; -J is needed for hosts with no direct route (Oerenburg).
+    hop: list[str] = ["-J", ssh_config.proxy_jump] if ssh_config.proxy_jump else []
+    base = [
         "-i",
         str(expanded_key_path),
         "-o",
         "StrictHostKeyChecking=no",
-        str(local_file),
-        f"{ssh_config.user}@{ssh_config.host}:{remote_path}",
+        *hop,
     ]
-    subprocess.run(scp_cmd, check=True)
 
-    chown_cmd = [
-        "ssh",
-        "-i",
-        str(expanded_key_path),
-        "-o",
-        "StrictHostKeyChecking=no",
-        f"{ssh_config.user}@{ssh_config.host}",
-        f"chown www-data:www-data '{remote_path}'",
-    ]
-    subprocess.run(chown_cmd, check=True)
+    # Two steps rather than one. The destination is inside a Docker volume and
+    # is root-owned, so scp'ing straight there only works when the SSH user is
+    # root -- true on the old Hetzner box, false everywhere sane. Land it in the
+    # user's own space first, then move it into place with sudo.
+    staged = f"/tmp/{remote_filename}"
+    target = f"{ssh_config.user}@{ssh_config.host}"
+    subprocess.run(
+        ["scp", *base, str(local_file), f"{target}:{staged}"],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "ssh",
+            *base,
+            target,
+            f"sudo install -m 664 -o www-data -g www-data '{staged}' '{remote_path}' "
+            f"&& rm -f '{staged}'",
+        ],
+        check=True,
+    )
 
     file_uuid = str(uuid.uuid4())
 
