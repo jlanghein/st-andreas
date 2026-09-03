@@ -12,6 +12,7 @@ from typing import Final
 import pandas as pd
 
 from st_andreas.admidio_db import (
+    ADMIDIO_SYSTEM_USER_ID,
     db_connection,
     fetch_field_value_list,
     fetch_user_field_values,
@@ -37,7 +38,6 @@ ADMIDIO_VOLUME_PATH: Final[str] = (
     "756e80f3bc09b1883b34a1389fce457f3561e7711d4ec592edbda3f2b422ad5a/"
     "_data/documents_sta/Mitgliederliste"
 )
-ADMIDIO_SYSTEM_USER_ID: Final[int] = 1
 
 
 def _fetch_value_list_mappings(

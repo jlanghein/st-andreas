@@ -161,6 +161,62 @@ uv run python -m st_andreas.pipelines.sepa_plausibility_check
 - Already-paid member exclusion
 - SEPA entry completeness (all required fields present)
 
+### SEPA Rücklastschriften (Returns)
+
+Reads the bank's MT940 export, finds returned direct debits from the annual membership collection, resolves each one back to a member via the SEPA mandate reference, and clears the `Beitrag <year> bezahlt` checkbox while appending a `Vermerk`.
+
+```bash
+# Weekly scheduler, dry run (default: reports, writes nothing)
+uv run sepa-returns
+
+# One import now, still a dry run
+uv run sepa-returns --once
+
+# Actually write: the database has to be named explicitly
+uv run sepa-returns --once --apply admidio
+
+# Offline run against a local copy of the exports
+uv run sepa-returns --once --from-directory ./exports
+
+# Ignore anything booked before a given value date
+uv run sepa-returns --once --since 2026-01-01
+```
+
+**Features:**
+- Picks the newest `STA_<account>_<blz>_<date>_<time>.sta` export (the rolling twelve-month window) and skips both the current-year `_EUR_` variant and the `VMK_` pending bookings
+- Refuses to import when a statement's `:25:` field names a different account
+- Detects GVC `109` / `SEPA-LASTSCHR. RETOURE CORE` with amount, value date, reason, mandate reference and original amount
+- Reads the membership year out of the `SVWZ+` text, falling back to the value date's year
+- Resolves a MitgliedsNr to one member and a FamilienNr to every member of that family; a reference held twice, held as both, or held by nobody is reported and never written
+- Looks up members without filtering to active memberships — a return often concerns someone who has since left
+- Mails a summary to the treasurer when a run finds new returns or cases it cannot resolve; a run with nothing new only logs
+
+**Safety:**
+- Dry run is the default; writing requires `--apply <database>`, and the name must match `ADMIDIO_DB_NAME`
+- The checkbox is only cleared when it still reads `1`, and the Vermerk only goes along with that clearing, so a return reconciled by hand is never overwritten or annotated twice
+- A ledger of return fingerprints (`RETURNS_LEDGER_PATH`, default `data/sepa_returns_ledger.json`) short-circuits the returns that repeat in every daily export
+- Every changed field also gets an `adm_user_log` row (actor: Admidio's System account, comment: mandate reference and value date), so the change shows up in the member's history in Admidio's own interface
+- All writes of one run, history rows included, happen in a single transaction
+
+**Vermerk format:** `Lastschrift zurückgekommen (128,11 €, 13.05.2026)` — the full booked amount, which decomposes as `OAMT + COAM + 5,11 EUR` (our bank's flat return fee). Return fees are absorbed by the Stamm; the member owes their normal Beitragsstufe amount again.
+
+**Configuration:** `STERNGELD_SMB_*`, `SEPA_ACCOUNT_NUMBER`, `SEPA_BLZ`, and optionally `RETURNS_REPORT_TO` plus `SMTP_*` — see `secrets.env.example`. Reading the share requires `smbclient` (Samba client tools) on the host.
+
+#### Systemd Service
+
+The returns pipeline runs weekly as a systemd user service, alongside the backup scheduler:
+
+```bash
+systemctl --user status st-andreas-sepa-returns
+journalctl --user -u st-andreas-sepa-returns -f
+```
+
+The unit's `ExecStart` carries the explicit write target:
+
+```ini
+ExecStart=/usr/bin/env uv run sepa-returns --apply admidio
+```
+
 ### Spendenquittungen (Donation Receipts)
 
 Fetches member data from Admidio database and generates Excel spreadsheet for mail merge document creation.
@@ -306,3 +362,50 @@ uv run pytest -v -m "not requires_database"
 ## Documentation
 
 - `docs/infrastructure.md` - Server access and database credentials
+
+### Admidio Sprachanpassung
+
+Die deutsche Admidio-Oberfläche wird auf das generische Maskulinum umgestellt. Da
+`adm_program` kein Docker-Volume ist, überlebt eine direkte Änderung kein Update — die
+Umschreibung passiert deshalb beim Image-Build:
+
+```bash
+# Aus dem Repository-Root, tools/degender*.py muss im Build-Kontext liegen
+docker build -f docker/Dockerfile.admidio -t admidio-sta:4.3.16 .
+```
+
+Das Basis-Image ist **per Digest** auf genau den Stand gepinnt, den VM 317 fährt
+(`sha256:bd24f79a…`, Admidio 4.3.16). Das abgeleitete Image ist damit ein reiner
+Sprach-Patch: Ausrollen ändert keine Admidio-Version. Ein Versionssprung ist eine bewusste
+Änderung dieses Digests — ein Tag kann sich von selbst verschieben, ein Digest nicht.
+
+`tools/degender.py` schreibt `de-DE.xml` und `de.xml` um: Doppelpunktformen und Artikel
+regelbasiert, Paarformen und neutrale Partizipien über eine Tabelle je `<string name>`.
+Die Regeltabellen selbst stehen in `tools/degender_rules.py`.
+Eine Formulierung, die keine Regel abdeckt, lässt den Build fehlschlagen; einzelne
+Strings lassen sich in `ACCEPTED_STRINGS` begründet ausnehmen und werden bei jedem Build
+ausgegeben. Ablauf beim Admidio-Update: siehe `docs/infrastructure.md`.
+
+```bash
+uv run pytest tests/test_degender.py
+```
+
+#### Lokaler Review-Stack
+
+Zum Ansehen im Browser gibt es einen Wegwerf-Stack aus MariaDB 10.11 und dem gepatchten
+Admidio-Image:
+
+```bash
+scripts/admidio-dev-stack.sh up      # bauen, starten, aus dem neuesten Backup befüllen
+scripts/admidio-dev-stack.sh logins  # vorhandene Anmeldenamen der Kopie auflisten
+scripts/admidio-dev-stack.sh down    # stoppen und beide Volumes löschen
+```
+
+Danach läuft Admidio auf <http://127.0.0.1:8099>. Die Zugangsdaten sind die der
+Produktion, weil die Kopie aus `backups/admidio_*.sql.gz` stammt. Image und Datenbank
+haben beide Version 4.3.16, es erscheint also kein Update-Assistent — die Startseite ist
+direkt die gewohnte Oberfläche.
+
+**Der Stack enthält echte Mitgliederdaten.** Alle Ports sind an `127.0.0.1` gebunden;
+er gehört auf keinen Server und hinter keinen Reverse Proxy. Die generierten Passwörter
+liegen in `dev.env.local` (gitignored), das Backup-Verzeichnis wird nur gelesen.

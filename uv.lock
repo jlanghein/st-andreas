@@ -684,7 +684,7 @@ dependencies = [
     { name = "pymysql" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "dirty-equals" },
     { name = "inline-snapshot" },
@@ -695,17 +695,20 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aioclock", specifier = ">=0.1" },
-    { name = "dirty-equals", marker = "extra == 'dev'", specifier = ">=0.7" },
-    { name = "inline-snapshot", marker = "extra == 'dev'", specifier = ">=0.10" },
     { name = "lxml", specifier = ">=5.0" },
     { name = "lxml-stubs", specifier = ">=0.5.1" },
     { name = "openpyxl", specifier = ">=3.0" },
     { name = "pandas", specifier = ">=2.0" },
     { name = "pymysql", specifier = ">=1.1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "dirty-equals", specifier = ">=0.7" },
+    { name = "inline-snapshot", specifier = ">=0.10" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-asyncio", specifier = ">=0.23" },
+]
 
 [[package]]
 name = "typing-extensions"

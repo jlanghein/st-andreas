@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Final
 from st_andreas.admidio_db import (
     MEMBERS_ROLE_NAME,
     PERMANENT_MEMBERSHIP_END,
+    USER_IS_VALID,
     AdmidioField,
 )
 
@@ -126,14 +127,20 @@ def fetch_member_assignments(
         WHERE ud.usd_usf_id = %s
           AND ud.usd_value IS NOT NULL
           AND ud.usd_value != ''
-          AND u.usr_valid = 1
+          AND u.usr_valid = %s
           AND r.rol_name = %s
           AND (m.mem_end >= CURDATE() OR m.mem_end = %s)
     """
 
     with conn.cursor() as cursor:
         cursor.execute(
-            query, (SIPPE_FIELD_ID, MEMBERS_ROLE_NAME, PERMANENT_MEMBERSHIP_END)
+            query,
+            (
+                SIPPE_FIELD_ID,
+                USER_IS_VALID,
+                MEMBERS_ROLE_NAME,
+                PERMANENT_MEMBERSHIP_END,
+            ),
         )
         rows = cursor.fetchall()
 
