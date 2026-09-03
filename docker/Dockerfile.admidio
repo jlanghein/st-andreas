@@ -20,7 +20,9 @@ ARG ADMIDIO_ROOT
 WORKDIR /languages
 COPY --from=upstream ${ADMIDIO_ROOT}/adm_program/languages/de-DE.xml ./
 COPY --from=upstream ${ADMIDIO_ROOT}/adm_program/languages/de.xml ./
-COPY tools/degender.py /usr/local/bin/degender.py
+# Both modules land in one directory: degender.py imports its rule tables as a
+# sibling, so they must stay next to each other.
+COPY tools/degender.py tools/degender_rules.py /usr/local/bin/
 RUN python3 /usr/local/bin/degender.py de-DE.xml de.xml
 
 FROM ${ADMIDIO_IMAGE}

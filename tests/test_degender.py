@@ -1,6 +1,7 @@
 """Tests for the Admidio language transform in tools/degender.py."""
 
 import importlib.util
+import sys
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 from types import ModuleType
@@ -8,6 +9,7 @@ from typing import Final
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 TRANSFORM_PATH: Final[Path] = REPO_ROOT / "tools" / "degender.py"
+RULES_PATH: Final[Path] = REPO_ROOT / "tools" / "degender_rules.py"
 FIXTURE_DIR: Final[Path] = Path(__file__).parent / "fixtures" / "languages"
 SAMPLE_FIXTURE: Final[Path] = FIXTURE_DIR / "sample-de-DE.xml"
 DRIFT_FIXTURE: Final[Path] = FIXTURE_DIR / "sample-drift-de-DE.xml"
@@ -16,16 +18,20 @@ STRING_ELEMENT_TAG: Final[str] = "string"
 STRING_NAME_ATTRIBUTE: Final[str] = "name"
 
 
-def _load_transform() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(TRANSFORM_PATH.stem, TRANSFORM_PATH)
+def _load_module(path: Path) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(path.stem, path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"cannot import {TRANSFORM_PATH}")
+        raise ImportError(f"cannot import {path}")
     module = importlib.util.module_from_spec(spec)
+    # Registered before execution so that degender.py's sibling import of the
+    # rules module resolves without tools/ being on sys.path.
+    sys.modules[path.stem] = module
     spec.loader.exec_module(module)
     return module
 
 
-degender = _load_transform()
+_load_module(RULES_PATH)
+degender = _load_module(TRANSFORM_PATH)
 
 
 def transform_fixture(path: Path = SAMPLE_FIXTURE) -> dict[str, str]:
