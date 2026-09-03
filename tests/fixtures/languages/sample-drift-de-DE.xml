@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+  <!--Stands in for an Admidio update that introduced wording no rule covers.-->
+  <string name="SYS_USER">Benutzer:in</string>
+  <string name="SYS_NEW_EDITOR">Bitte wenden Sie sich an eine:n Redakteur:in.</string>
+  <string name="SYS_NEW_SPEAKER">Der Termin wird von der Sprecherin oder dem Sprecher bestätigt.</string>
+</resources>
