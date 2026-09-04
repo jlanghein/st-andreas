@@ -13,7 +13,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="${REPO_ROOT}/docker-compose.dev.yml"
 ENV_FILE="${REPO_ROOT}/dev.env.local"
 BACKUP_DIR="${BACKUP_DIR:-${REPO_ROOT}/backups}"
-DEFAULT_PORT=8099
+DEFAULT_PORT=8700
 
 compose() {
   docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
@@ -42,8 +42,9 @@ require_env_file() {
 
 newest_backup() {
   local newest
-  newest="$(find "${BACKUP_DIR}" -maxdepth 1 -name 'admidio_*.sql.gz' -printf '%T@ %p\n' |
-    sort -rn | head -1 | cut -d' ' -f2-)"
+  # Sorted by name, not mtime: the timestamp is zero-padded into the filename,
+  # which survives a copy between hosts and needs no GNU-only find flags.
+  newest="$(find "${BACKUP_DIR}" -maxdepth 1 -name 'admidio_*.sql.gz' | sort | tail -1)"
   if [[ -z "${newest}" ]]; then
     echo "no admidio_*.sql.gz in ${BACKUP_DIR}" >&2
     return 1

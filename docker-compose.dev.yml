@@ -26,6 +26,10 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.admidio
+    # Upstream publishes this digest for amd64 only. Reviewing an arm64 build
+    # would mean reviewing a binary production never runs, so Apple silicon
+    # emulates instead (Colima needs Rosetta enabled).
+    platform: linux/amd64
     depends_on:
       db:
         condition: service_healthy
@@ -39,10 +43,10 @@ services:
       ADMIDIO_DB_PASSWORD: ${ADMIDIO_DEV_DB_PASSWORD:?set in dev.env.local}
       ADMIDIO_DB_TABLE_PRAEFIX: adm
       ADMIDIO_ORGANISATION: StA
-      ADMIDIO_ROOT_PATH: http://127.0.0.1:${ADMIDIO_DEV_PORT:-8099}
+      ADMIDIO_ROOT_PATH: http://127.0.0.1:${ADMIDIO_DEV_PORT:-8700}
       TZ: Europe/Berlin
     ports:
-      - "127.0.0.1:${ADMIDIO_DEV_PORT:-8099}:8080"
+      - "127.0.0.1:${ADMIDIO_DEV_PORT:-8700}:8080"
     volumes:
       - admidio_files:/opt/app-root/src/adm_my_files
 
