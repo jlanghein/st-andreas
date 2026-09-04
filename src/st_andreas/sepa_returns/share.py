@@ -6,17 +6,18 @@ outside world.
 
 from __future__ import annotations
 
-import os
 import re
-import subprocess
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Final, Protocol
 
+import smbclient
+from smbprotocol.exceptions import SMBException
+
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from st_andreas.sepa_returns.config import ShareConfig
 
@@ -24,12 +25,9 @@ STATEMENT_PREFIX: Final[str] = "STA_"
 STATEMENT_SUFFIX: Final[str] = ".sta"
 EXPORT_TIMESTAMP_FORMAT: Final[str] = "%Y%m%d%H%M%S"
 
-SMB_CLIENT_COMMAND: Final[str] = "smbclient"
-SMB_PASSWORD_ENV_VAR: Final[str] = "PASSWD"
-SMB_LIST_COMMAND: Final[str] = "ls"
-SMB_GET_COMMAND: Final[str] = "get"
-SMB_TIMEOUT_SECONDS: Final[int] = 300
-SMB_UNC_PREFIX: Final[str] = "//"
+SMB_PATH_SEPARATOR: Final[str] = "\\"
+SMB_UNC_PREFIX: Final[str] = SMB_PATH_SEPARATOR * 2
+POSIX_PATH_SEPARATOR: Final[str] = "/"
 
 STATEMENT_FILENAME_PATTERN: Final[re.Pattern[str]] = re.compile(
     rf"^{re.escape(STATEMENT_PREFIX)}"
@@ -93,6 +91,14 @@ def parse_export_name(name: str) -> StatementExport | None:
     )
 
 
+def export_folder(config: ShareConfig) -> str:
+    """Build the UNC path of the folder holding the exports."""
+    path = config.path.replace(POSIX_PATH_SEPARATOR, SMB_PATH_SEPARATOR)
+    return SMB_PATH_SEPARATOR.join(
+        (f"{SMB_UNC_PREFIX}{config.host}", config.share, path)
+    )
+
+
 def select_export(names: Iterable[str], account: str) -> StatementExport | None:
     """Pick the newest rolling-window export for the given account."""
     candidates = [
@@ -125,58 +131,44 @@ class LocalDirectorySource:
 
 @dataclass(frozen=True)
 class SmbShareSource:
-    """Exports on the SternGeld SMB share, read through ``smbclient``."""
+    """Exports on the SternGeld SMB share, read through ``smbprotocol``.
+
+    A pure-Python client rather than the Samba ``smbclient`` binary, which is
+    absent on macOS and would make the host an install-time dependency.
+    """
 
     config: ShareConfig
 
     def list_names(self) -> list[str]:
-        """List the file names in the configured share folder."""
-        output = self._run(f"{SMB_LIST_COMMAND} {STATEMENT_PREFIX}*")
-        return [
-            name
-            for name in (
-                line.strip().split()[0] for line in output.splitlines() if line.strip()
-            )
-            if STATEMENT_FILENAME_PATTERN.match(name)
-        ]
+        """List the export file names in the configured share folder."""
+        with self._connected() as folder:
+            return [
+                name
+                for name in smbclient.listdir(folder)
+                if STATEMENT_FILENAME_PATTERN.match(name)
+            ]
 
     def read(self, name: str) -> bytes:
         """Download one export file and return its bytes."""
-        with TemporaryDirectory() as workdir:
-            target = Path(workdir) / name
-            self._run(f'{SMB_GET_COMMAND} "{name}" "{target}"')
-            return target.read_bytes()
+        with (
+            self._connected() as folder,
+            smbclient.open_file(
+                f"{folder}{SMB_PATH_SEPARATOR}{name}", mode="rb"
+            ) as handle,
+        ):
+            return handle.read()
 
-    def _run(self, command: str) -> str:
-        share = f"{SMB_UNC_PREFIX}{self.config.host}/{self.config.share}"
-        argv = [
-            SMB_CLIENT_COMMAND,
-            share,
-            "-U",
-            self.config.user,
-            "-D",
-            self.config.path,
-            "-c",
-            command,
-        ]
-        environment = os.environ | {SMB_PASSWORD_ENV_VAR: self.config.password}
-
+    @contextmanager
+    def _connected(self) -> Iterator[str]:
+        """Hold a share session for one operation, yielding the export folder."""
         try:
-            completed = subprocess.run(
-                argv,
-                env=environment,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=SMB_TIMEOUT_SECONDS,
+            smbclient.register_session(
+                self.config.host,
+                username=self.config.user,
+                password=self.config.password,
             )
-        except FileNotFoundError as error:
-            raise ShareError(
-                f"{SMB_CLIENT_COMMAND} is not installed on this host"
-            ) from error
-        except subprocess.TimeoutExpired as error:
-            raise ShareError(f"{share} did not answer in time") from error
-        except subprocess.CalledProcessError as error:
-            raise ShareError(f"{share}: {error.stderr.strip()}") from error
-
-        return completed.stdout
+            yield export_folder(self.config)
+        except (OSError, SMBException) as error:
+            raise ShareError(f"{export_folder(self.config)}: {error}") from error
+        finally:
+            smbclient.reset_connection_cache()
