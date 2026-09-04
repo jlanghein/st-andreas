@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@1.6.0",
+        "--user-data-dir=/Users/anwender/.cache/chrome-devtools-mcp/profiles/st-andreas",
+        "--chromeArg=--remote-debugging-port=9280"
+      ]
+    }
+  }
+}
