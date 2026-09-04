@@ -18,7 +18,10 @@ if TYPE_CHECKING:
 
 SECRETS_FILE: Final[Path] = Path(__file__).parent.parent.parent / "secrets.env"
 
-SSH_TUNNEL_LOCAL_PORT: Final[int] = 13306
+# Parallel worktrees each open their own tunnel, so the local end has to be
+# movable; the remote end is always MariaDB's own port.
+TUNNEL_LOCAL_PORT_KEY: Final[str] = "ADMIDIO_TUNNEL_LOCAL_PORT"
+DEFAULT_SSH_TUNNEL_LOCAL_PORT: Final[int] = 13306
 SSH_TUNNEL_REMOTE_PORT: Final[int] = 3306
 # Default tunnel target: the MariaDB container's address on the Docker bridge.
 # This is a fragile default -- Docker renumbers bridges -- and it is only still
@@ -87,6 +90,7 @@ class SSHConfig:
     key_path: str
     tunnel_target: str = DOCKER_DB_HOST
     proxy_jump: str | None = None
+    local_port: int = DEFAULT_SSH_TUNNEL_LOCAL_PORT
 
 
 def load_secrets(path: Path | None = None) -> dict[str, str]:
@@ -106,6 +110,11 @@ def load_secrets(path: Path | None = None) -> dict[str, str]:
     return secrets
 
 
+def load_tunnel_local_port(secrets: dict[str, str]) -> int:
+    """Resolve the local end of the database tunnel."""
+    return int(secrets.get(TUNNEL_LOCAL_PORT_KEY, DEFAULT_SSH_TUNNEL_LOCAL_PORT))
+
+
 def load_ssh_config(secrets: dict[str, str] | None = None) -> SSHConfig:
     """Load SSH configuration from secrets."""
     if secrets is None:
@@ -119,6 +128,7 @@ def load_ssh_config(secrets: dict[str, str] | None = None) -> SSHConfig:
         key_path=secrets["HETZNER_SSH_KEY_PATH"],
         tunnel_target=secrets.get("ADMIDIO_TUNNEL_TARGET", DOCKER_DB_HOST),
         proxy_jump=secrets.get("HETZNER_SSH_PROXYJUMP") or None,
+        local_port=load_tunnel_local_port(secrets),
     )
 
 
@@ -129,7 +139,7 @@ def load_db_config(secrets: dict[str, str] | None = None) -> AdmidioConfig:
 
     return AdmidioConfig(
         host="127.0.0.1",
-        port=SSH_TUNNEL_LOCAL_PORT,
+        port=load_tunnel_local_port(secrets),
         database=secrets["ADMIDIO_DB_NAME"],
         user=secrets["ADMIDIO_DB_USER"],
         password=secrets["ADMIDIO_DB_PASSWORD"],
@@ -153,7 +163,7 @@ def ssh_tunnel(config: SSHConfig | None = None) -> Iterator[None]:
         "-o",
         "ExitOnForwardFailure=yes",
         "-L",
-        f"{SSH_TUNNEL_LOCAL_PORT}:{config.tunnel_target}:{SSH_TUNNEL_REMOTE_PORT}",
+        f"{config.local_port}:{config.tunnel_target}:{SSH_TUNNEL_REMOTE_PORT}",
         "-N",
     ]
     if config.proxy_jump:

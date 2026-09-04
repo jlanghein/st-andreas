@@ -3,11 +3,14 @@
 from pathlib import Path
 
 from st_andreas.admidio_db import (
+    DEFAULT_SSH_TUNNEL_LOCAL_PORT,
+    TUNNEL_LOCAL_PORT_KEY,
     AdmidioConfig,
     SSHConfig,
     load_db_config,
     load_secrets,
     load_ssh_config,
+    load_tunnel_local_port,
 )
 
 
@@ -84,3 +87,38 @@ class TestLoadDBConfig:
         assert result.user == "test_user"
         assert result.password == "test_password"
         assert result.table_prefix == "adm_"
+
+
+class TestLoadTunnelLocalPort:
+    """Tests for load_tunnel_local_port function."""
+
+    def test_defaults_when_unset(self, secrets_file: Path) -> None:
+        # Arrange
+        secrets = load_secrets(secrets_file)
+
+        # Act
+        result = load_tunnel_local_port(secrets)
+
+        # Assert
+        assert result == DEFAULT_SSH_TUNNEL_LOCAL_PORT
+
+    def test_reads_the_override(self, secrets_file: Path) -> None:
+        # Arrange
+        secrets = load_secrets(secrets_file) | {TUNNEL_LOCAL_PORT_KEY: "13307"}
+
+        # Act
+        result = load_tunnel_local_port(secrets)
+
+        # Assert
+        assert result == 13307
+
+    def test_ssh_and_db_config_agree_on_the_override(self, secrets_file: Path) -> None:
+        # Arrange
+        secrets = load_secrets(secrets_file) | {TUNNEL_LOCAL_PORT_KEY: "13308"}
+
+        # Act
+        ssh_config = load_ssh_config(secrets)
+        db_config = load_db_config(secrets)
+
+        # Assert
+        assert ssh_config.local_port == db_config.port == 13308
