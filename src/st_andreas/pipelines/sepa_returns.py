@@ -52,6 +52,7 @@ log = logging.getLogger(__name__)
 
 LOG_FORMAT: Final[str] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 DATE_ARGUMENT_FORMAT: Final[str] = "%Y-%m-%d"
+SMB_LOGGER_NAME: Final[str] = "smbprotocol"
 DATABASE_NAME_KEY: Final[str] = "ADMIDIO_DB_NAME"
 TABLE_PREFIX_KEY: Final[str] = "ADMIDIO_TABLE_PREFIX"
 
@@ -137,6 +138,8 @@ def setup_logging() -> None:
         format=LOG_FORMAT,
         handlers=[logging.StreamHandler(sys.stdout)],
     )
+    # Thirty lines of SMB handshake per run would bury the one line that matters.
+    logging.getLogger(SMB_LOGGER_NAME).setLevel(logging.WARNING)
 
 
 @asynccontextmanager
