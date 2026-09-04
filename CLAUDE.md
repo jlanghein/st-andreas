@@ -53,6 +53,37 @@ Everything reads from a single source of truth: the **Admidio MariaDB** running 
 
 `secrets.env`, `data/`, `src/data/`, `backups/`, and `StAndreas/` (legacy Jupyter notebooks, superseded by `src/`) are all gitignored. `docs/infrastructure.md` documents the server, DB, and systemd setup.
 
+## Development environment
+
+The dev checkout is moving from VM 230 to the Mac mini (`anwender@10.10.20.23`),
+which is shared with kontor, windee, raven, holi and new-website -- see #24 for
+the state of that move. Docker there is Colima, and **the pinned Admidio digest
+is published for amd64 only**, so Apple silicon emulates it; `docker-compose.dev.yml`
+pins `platform: linux/amd64` to keep the review build identical to production.
+
+Because the host is shared, this project owns three port blocks and nothing
+outside them:
+
+| Range | Purpose |
+|---------------|-------------------------------------------------------|
+| 8700-8709     | Admidio review stack; 8700 the main checkout, 8701+ worktree lanes |
+| 8710-8719     | Reserved for support services; nothing published by default |
+| 9280-9289     | Chrome MCP remote debugging, one port per checkout    |
+| 13306-13315   | SSH tunnels to the Admidio database                  |
+
+`SSH_TUNNEL_LOCAL_PORT` is no longer fixed: set `ADMIDIO_TUNNEL_LOCAL_PORT` in
+`secrets.env` to move the local end, which is what lets two worktrees run
+DB-touching work at once.
+
+```bash
+scripts/admidio-dev-stack.sh up      # build, start and seed from the newest backup
+scripts/admidio-dev-stack.sh down    # stop and delete both volumes
+```
+
+The stack seeds from `backups/` and therefore **holds real member data**: it
+binds to 127.0.0.1 only and belongs on no server. `dev.env.local` (gitignored)
+is generated on first `up`.
+
 ## Deployment
 
 > **The database host is moving.** The Hetzner vServer `ubuntu-sta` is still
@@ -137,7 +168,8 @@ uv run python -c "
 from st_andreas.admidio_db import ssh_tunnel, db_connection
 with ssh_tunnel(), db_connection() as c:
     with c.cursor() as k:
-        k.execute('SELECT COUNT(*) FROM adm_users'); print('users:', k.fetchone()[0])"
+        k.execute('SELECT COUNT(*) FROM adm_users')
+        print('users:', k.fetchone()['COUNT(*)'])"
 
 # 2. the upload path -- lands as www-data and is visible to the app
 uv run fetch-members-all
