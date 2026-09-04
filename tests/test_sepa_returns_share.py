@@ -5,8 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from st_andreas.sepa_returns.config import ShareConfig
 from st_andreas.sepa_returns.share import (
     LocalDirectorySource,
+    export_folder,
     parse_export_name,
     select_export,
 )
@@ -82,3 +84,18 @@ class TestLocalDirectorySource:
         assert (
             source.read(ROLLING_WINDOW) == (FIXTURE_DIR / ROLLING_WINDOW).read_bytes()
         )
+
+
+class TestExportFolder:
+    def test_builds_a_unc_path_from_a_posix_share_path(self) -> None:
+        # Arrange
+        config = ShareConfig(
+            host="sterngeld.example",
+            share="Daten",
+            user="stamm",
+            password="secret",
+            path="Kunden/StAndreas",
+        )
+
+        # Act / Assert
+        assert export_folder(config) == r"\\sterngeld.example\Daten\Kunden\StAndreas"

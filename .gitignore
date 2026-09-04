@@ -15,3 +15,5 @@ backups/
 
 # Copied notebooks
 StAndreas/
+
+.claude/settings.local.json

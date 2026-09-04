@@ -15,7 +15,7 @@ ARG ADMIDIO_ROOT=/opt/app-root/src
 
 FROM ${ADMIDIO_IMAGE} AS upstream
 
-FROM python:${PYTHON_VERSION} AS transform
+FROM --platform=${BUILDPLATFORM} python:${PYTHON_VERSION} AS transform
 ARG ADMIDIO_ROOT
 WORKDIR /languages
 COPY --from=upstream ${ADMIDIO_ROOT}/adm_program/languages/de-DE.xml ./

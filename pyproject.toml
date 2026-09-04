@@ -10,6 +10,7 @@ dependencies = [
     "openpyxl>=3.0",
     "pandas>=2.0",
     "pymysql>=1.1",
+    "smbprotocol>=1.17.0",
 ]
 
 [dependency-groups]
